@@ -3,8 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>0.01 ETH Crypto Raffle - Win Big!</title>
+    <title>🎰 Crypto Raffle - Win ETH Prizes!</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
     <!-- Header Stats Bar -->
@@ -33,42 +36,46 @@
 
     <!-- Page Title -->
     <div style="max-width: 1400px; margin: 2rem auto; padding: 0 1.5rem;">
-        <h1 style="font-size: 2.5rem; font-weight: 800; color: #111827; text-align: center; margin-bottom: 0.5rem;">
-            🎰 Crypto Raffle - Win 0.01 ETH
+        <h1 style="font-size: 2.5rem; font-weight: 800; text-align: center; margin-bottom: 0.5rem; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
+            🎰 Crypto Raffle Platform
         </h1>
-        <p style="text-align: center; color: #6B7280; font-size: 1.125rem;">
-            Enter for ~$2-3 worth of ETH • Winner selected randomly & paid automatically
+        <p style="text-align: center; color: var(--text-secondary); font-size: 1.125rem; margin-bottom: 1rem;">
+            Enter raffles with crypto • Winners selected randomly • Prizes paid automatically
         </p>
-        <div style="text-align: center; margin-top: 1rem; padding: 1rem; background: #EFF6FF; border-radius: 8px; max-width: 600px; margin-left: auto; margin-right: auto;">
-            <p style="color: #1E40AF; font-weight: 600; margin: 0;">
-                ✨ How it works: Each entry gets a unique number • Winner drawn automatically when raffle ends • Prize sent directly to winner's wallet
+        <div style="text-align: center; margin-top: 1rem; padding: 1.5rem; background: var(--bg-card); border-radius: 12px; max-width: 700px; margin-left: auto; margin-right: auto; border: 1px solid rgba(99, 102, 241, 0.2);">
+            <p style="color: var(--text-primary); font-weight: 600; margin: 0; line-height: 1.6;">
+                ✨ <strong>How it works:</strong> Connect wallet → Enter raffle → Get unique entry number → Winner drawn automatically → Claim your prize!
             </p>
         </div>
     </div>
 
-    <!-- Raffles Container -->
+    <!-- Raffles Container (Winner banner will be inserted here) -->
     <div id="rafflesContainer" style="max-width: 1400px; margin: 0 auto; padding: 0 1.5rem 3rem;">
         <div id="rafflesList">
             <!-- Raffles will be dynamically loaded here -->
-            <p style="text-align: center; color: #6B7280; padding: 3rem; font-size: 1.125rem;">
-                No active raffles at the moment. Check back soon!
-            </p>
+            <div class="empty-state">
+                <div class="empty-state-icon">🎰</div>
+                <div class="empty-state-text">Loading raffles...</div>
+            </div>
         </div>
     </div>
 
     <!-- Global Status Message -->
-    <div id="globalStatusMessage" class="status-message" style="position: fixed; top: 80px; left: 50%; transform: translateX(-50%); z-index: 1000; min-width: 300px;"></div>
+    <div id="globalStatusMessage" class="status-message"></div>
 
     <!-- Footer -->
     <footer class="footer">
-        <p>🎰 Crypto Raffle • Powered by Ethereum Smart Contracts • 100% Transparent & Secure</p>
-        <p class="footer-note">⚠️ This is a DEMO for testing purposes</p>
+        <p>🎰 Crypto Raffle Platform • Powered by Ethereum • 100% Transparent & Secure</p>
+        <p class="footer-note">⚠️ Always verify transactions in MetaMask before confirming</p>
+        <p class="footer-note" style="margin-top: 0.5rem;">
+            <a href="admin.html" style="color: var(--text-muted); text-decoration: none;">Admin Panel</a>
+        </p>
     </footer>
 
+    <!-- Scripts -->
     <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js"></script>
     <script src="config.js"></script>
     <script src="api-service.js"></script>
-    <script src="demo-data.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

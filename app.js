@@ -4,7 +4,8 @@ let appState = {
     walletAddress: null,
     activeRaffles: [],
     provider: null,
-    signer: null
+    signer: null,
+    userEntryNumbers: {} // Store user's entry numbers per raffle
 };
 
 // Emoji avatars for participants
@@ -15,9 +16,11 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeApp();
     loadAllActiveRaffles();
     checkMetaMaskConnection();
+    checkForWinners(); // Check if user won any raffles
     
     // Check for updates periodically
     setInterval(checkForRaffleUpdates, 5000);
+    setInterval(updateParticipantLists, 3000); // Update participant lists
     
     // Check for raffle end and auto-draw winner
     setInterval(checkAndDrawWinner, 10000);
@@ -66,7 +69,6 @@ async function connectWallet() {
             walletText.textContent = 'Connecting...';
             showGlobalStatus('🦊 Opening MetaMask... Please select your account!', 'success');
             
-            // Request account access with wallet_requestPermissions
             await window.ethereum.request({
                 method: 'wallet_requestPermissions',
                 params: [{ eth_accounts: {} }]
@@ -85,7 +87,6 @@ async function connectWallet() {
             const chainId = await window.ethereum.request({ method: 'eth_chainId' });
             const networkName = getNetworkName(chainId);
             
-            // Initialize Web3 provider
             if (typeof ethers !== 'undefined') {
                 try {
                     appState.provider = new ethers.providers.Web3Provider(window.ethereum);
@@ -103,8 +104,8 @@ async function connectWallet() {
             
             showGlobalStatus(`✅ Connected to ${networkName}!`, 'success');
             
-            // Reload raffles to update user-specific data
             loadAllActiveRaffles();
+            checkForWinners();
             
         } catch (error) {
             console.error('Error connecting wallet:', error);
@@ -118,7 +119,6 @@ async function connectWallet() {
             }
         }
     } else {
-        // Disconnect
         appState.isConnected = false;
         appState.walletAddress = null;
         
@@ -169,6 +169,7 @@ function handleAccountsChanged(accounts) {
         showGlobalStatus(`🔄 Switched to ${accounts[0].slice(0, 6)}...${accounts[0].slice(-4)}`, 'success');
     }
     loadAllActiveRaffles();
+    checkForWinners();
 }
 
 function getNetworkName(chainId) {
@@ -184,16 +185,63 @@ function getNetworkName(chainId) {
     return networks[chainId] || `Unknown Network (${chainId})`;
 }
 
+// Check if user won any raffles
+async function checkForWinners() {
+    if (!appState.walletAddress) return;
+    
+    const allRaffles = await raffleAPI.getAllRaffles();
+    const completedRaffles = allRaffles.filter(r => r.status === 'completed' && r.winner);
+    
+    for (const raffle of completedRaffles) {
+        if (raffle.winner.toLowerCase() === appState.walletAddress.toLowerCase()) {
+            showWinnerBanner(raffle);
+            break; // Show only one winner banner at a time
+        }
+    }
+}
+
+function showWinnerBanner(raffle) {
+    const container = document.getElementById('rafflesContainer');
+    const existingBanner = document.getElementById('winnerBanner');
+    
+    if (existingBanner) return; // Already showing
+    
+    const banner = document.createElement('div');
+    banner.id = 'winnerBanner';
+    banner.className = 'winner-banner';
+    banner.innerHTML = `
+        <h2>🎉 CONGRATULATIONS! YOU WON! 🎉</h2>
+        <p style="font-size: 1.2rem; margin: 1rem 0;">You won the raffle: <strong>${raffle.title}</strong></p>
+        <div class="winner-address">Prize: ${raffle.prizePool} ETH</div>
+        <p style="margin: 1rem 0; opacity: 0.9;">Your winning wallet: ${appState.walletAddress}</p>
+        <button class="claim-button" onclick="claimReward('${raffle.id}')">
+            💰 Claim Your Reward
+        </button>
+        <p style="font-size: 0.875rem; margin-top: 1rem; opacity: 0.8;">
+            Click the button above to contact admin for prize distribution
+        </p>
+    `;
+    
+    container.insertBefore(banner, container.firstChild);
+}
+
+async function claimReward(raffleId) {
+    const raffle = await raffleAPI.getRaffle(raffleId);
+    if (!raffle) return;
+    
+    alert(`🎉 Congratulations on winning ${raffle.prizePool} ETH!\n\n` +
+          `Your wallet: ${appState.walletAddress}\n\n` +
+          `The admin will send your prize shortly. Please check your wallet for the incoming transaction.\n\n` +
+          `If you don't receive it within 24 hours, please contact support.`);
+}
+
 async function loadAllActiveRaffles() {
-    // Load all raffles from API
     const allRaffles = await raffleAPI.getActiveRaffles();
     
     appState.activeRaffles = allRaffles;
     
-    // Update header stats
     document.getElementById('headerActiveRaffles').textContent = appState.activeRaffles.length;
     
-    // Calculate total participants across all raffles
     let totalParticipants = 0;
     for (const raffle of appState.activeRaffles) {
         const participants = await raffleAPI.getParticipants(raffle.id);
@@ -201,7 +249,6 @@ async function loadAllActiveRaffles() {
     }
     document.getElementById('headerTotalParticipants').textContent = totalParticipants;
     
-    // Display raffles
     displayAllRaffles();
 }
 
@@ -210,17 +257,16 @@ async function displayAllRaffles() {
     
     if (appState.activeRaffles.length === 0) {
         rafflesList.innerHTML = `
-            <p style="text-align: center; color: #6B7280; padding: 3rem; font-size: 1.125rem;">
-                No active raffles at the moment. Check back soon!
-            </p>
+            <div class="empty-state">
+                <div class="empty-state-icon">🎰</div>
+                <div class="empty-state-text">No active raffles at the moment. Check back soon!</div>
+            </div>
         `;
         return;
     }
     
-    // Sort raffles by end time (ending soonest first)
     const sortedRaffles = [...appState.activeRaffles].sort((a, b) => a.endTime - b.endTime);
     
-    // Create cards with participant data
     const cards = [];
     for (const raffle of sortedRaffles) {
         const card = await createRaffleCard(raffle);
@@ -229,130 +275,135 @@ async function displayAllRaffles() {
     
     rafflesList.innerHTML = cards.join('');
     
-    // Start countdowns for all raffles
     sortedRaffles.forEach(raffle => {
         startCountdown(raffle.id, raffle.endTime);
     });
 }
 
 async function createRaffleCard(raffle) {
-    // Load raffle-specific data from API
     const participants = await raffleAPI.getParticipants(raffle.id);
     const userEntries = appState.walletAddress
-        ? participants.filter(p => p.address.toLowerCase() === appState.walletAddress.toLowerCase()).length
-        : 0;
+        ? participants.filter(p => p.address.toLowerCase() === appState.walletAddress.toLowerCase())
+        : [];
     
     const filledSpots = participants.length;
     const percentage = ((filledSpots / raffle.totalSpots) * 100).toFixed(1);
-    const winChance = filledSpots > 0 ? ((userEntries / filledSpots) * 100).toFixed(2) : '0.00';
+    const winChance = filledSpots > 0 ? ((userEntries.length / filledSpots) * 100).toFixed(2) : '0.00';
+    
+    // Get user's entry number if they entered
+    const userEntryNumber = userEntries.length > 0 ? 
+        participants.findIndex(p => p.address.toLowerCase() === appState.walletAddress.toLowerCase()) + 1 : null;
     
     return `
-        <div class="raffle-card glass-card" style="margin-bottom: 2rem; padding: 2rem; border-radius: 16px; background: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
-                <!-- Left Side - Raffle Info -->
-                <div>
-                    <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
-                        <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 2.5rem;">
-                            🎰
-                        </div>
-                        <div>
-                            <h2 style="font-size: 1.75rem; font-weight: 800; color: #111827; margin: 0;">${raffle.title}</h2>
-                            <p style="color: #6B7280; margin: 0.25rem 0 0 0;">${raffle.description}</p>
-                        </div>
-                    </div>
-                    
-                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-top: 1.5rem;">
-                        <div style="background: #F3F4F6; padding: 1rem; border-radius: 8px;">
-                            <div style="font-size: 0.875rem; color: #6B7280;">Prize Pool</div>
-                            <div style="font-size: 1.5rem; font-weight: 700; color: #10B981;">${raffle.prizePool} ETH</div>
-                        </div>
-                        <div style="background: #F3F4F6; padding: 1rem; border-radius: 8px;">
-                            <div style="font-size: 0.875rem; color: #6B7280;">Entry Fee</div>
-                            <div style="font-size: 1.5rem; font-weight: 700; color: #3B82F6;">${raffle.entryFee} ETH</div>
-                        </div>
-                        <div style="background: #F3F4F6; padding: 1rem; border-radius: 8px;">
-                            <div style="font-size: 0.875rem; color: #6B7280;">Participants</div>
-                            <div style="font-size: 1.5rem; font-weight: 700; color: #111827;">${filledSpots}</div>
-                        </div>
-                        <div style="background: #F3F4F6; padding: 1rem; border-radius: 8px;">
-                            <div style="font-size: 0.875rem; color: #6B7280;">Your Entries</div>
-                            <div style="font-size: 1.5rem; font-weight: 700; color: #8B5CF6;">${userEntries}</div>
-                        </div>
-                    </div>
-                    
-                    <!-- Progress Bar -->
-                    <div style="margin-top: 1.5rem;">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                            <span style="font-size: 0.875rem; color: #6B7280;">Spots Filled</span>
-                            <span style="font-size: 0.875rem; font-weight: 600; color: #111827;">${percentage}%</span>
-                        </div>
-                        <div style="width: 100%; height: 8px; background: #E5E7EB; border-radius: 4px; overflow: hidden;">
-                            <div style="width: ${percentage}%; height: 100%; background: linear-gradient(90deg, #10B981, #3B82F6); transition: width 0.3s;"></div>
-                        </div>
-                        <div style="font-size: 0.875rem; color: #6B7280; margin-top: 0.25rem;">
-                            ${filledSpots} / ${raffle.totalSpots} spots
-                        </div>
+        <div class="raffle-card">
+            <!-- Raffle Header -->
+            <div class="raffle-header">
+                <div class="raffle-icon">🎰</div>
+                <div class="raffle-title-section">
+                    <h2>${raffle.title}</h2>
+                    <p>${raffle.description}</p>
+                </div>
+            </div>
+            
+            <!-- Countdown Timer -->
+            <div class="countdown-timer">
+                <div class="countdown-label">⏰ Draw Countdown</div>
+                <div class="countdown-value" id="countdown-${raffle.id}">Loading...</div>
+            </div>
+            
+            <!-- Stats Grid -->
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-box-label">Prize Pool</div>
+                    <div class="stat-box-value success">${raffle.prizePool} ETH</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-box-label">Entry Fee</div>
+                    <div class="stat-box-value primary">${raffle.entryFee} ETH</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-box-label">Participants</div>
+                    <div class="stat-box-value">${filledSpots} / ${raffle.totalSpots}</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-box-label">Your Entries</div>
+                    <div class="stat-box-value warning">${userEntries.length}</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-box-label">Win Chance</div>
+                    <div class="stat-box-value primary">${winChance}%</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-box-label">Max Per Wallet</div>
+                    <div class="stat-box-value">${raffle.maxPerWallet}</div>
+                </div>
+            </div>
+            
+            <!-- Progress Bar -->
+            <div class="progress-section">
+                <div class="progress-header">
+                    <span class="progress-label">Spots Filled</span>
+                    <span class="progress-percentage">${percentage}%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: ${percentage}%"></div>
+                </div>
+                <div class="progress-text">${filledSpots} / ${raffle.totalSpots} spots filled</div>
+            </div>
+            
+            <!-- Entry Confirmation (if user entered) -->
+            ${userEntries.length > 0 ? `
+                <div class="entry-confirmation">
+                    <div class="entry-confirmation-title">✅ You're Entered!</div>
+                    <div class="entry-number">#${userEntryNumber}</div>
+                    <div class="entry-details">
+                        Your entry number • ${userEntries.length} ${userEntries.length === 1 ? 'entry' : 'entries'} total
                     </div>
                 </div>
-                
-                <!-- Right Side - Entry Form -->
-                <div>
-                    <!-- Countdown -->
-                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 1.5rem; border-radius: 12px; color: white; margin-bottom: 1.5rem;">
-                        <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">⏰ Draw Countdown</div>
-                        <div id="countdown-${raffle.id}" style="font-size: 1.75rem; font-weight: 700;">Loading...</div>
-                    </div>
-                    
-                    <!-- Entry Details -->
-                    <div style="background: #F9FAFB; padding: 1.5rem; border-radius: 12px; margin-bottom: 1rem;">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.75rem;">
-                            <span style="color: #6B7280;">Max Per Wallet:</span>
-                            <span style="font-weight: 600;">${raffle.maxPerWallet} entries</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.75rem;">
-                            <span style="color: #6B7280;">Your Win Chance:</span>
-                            <span style="font-weight: 600; color: #8B5CF6;">${winChance}%</span>
-                        </div>
-                    </div>
-                    
-                    <!-- Entry Button -->
-                    <button 
-                        onclick="enterRaffle('${raffle.id}')" 
-                        style="width: 100%; padding: 1rem; background: linear-gradient(135deg, #10B981 0%, #059669 100%); color: white; border: none; border-radius: 8px; font-size: 1.125rem; font-weight: 700; cursor: pointer; transition: transform 0.2s;"
-                        onmouseover="this.style.transform='scale(1.02)'"
-                        onmouseout="this.style.transform='scale(1)'"
-                        ${!appState.isConnected ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}
-                    >
-                        ${appState.isConnected ? '🎫 Enter Raffle Now' : '🔒 Connect Wallet First'}
-                    </button>
-                    
-                    ${userEntries > 0 ? `
-                        <div style="margin-top: 1rem; padding: 1rem; background: #EFF6FF; border: 1px solid #3B82F6; border-radius: 8px; text-align: center;">
-                            <span style="color: #1E40AF; font-weight: 600;">✅ You have ${userEntries} ${userEntries === 1 ? 'entry' : 'entries'} in this raffle!</span>
-                        </div>
-                    ` : ''}
-                    
-                    <!-- Recent Entries -->
-                    <div style="margin-top: 1.5rem;">
-                        <div style="font-size: 0.875rem; font-weight: 600; color: #111827; margin-bottom: 0.75rem;">
-                            📜 Recent Entries (${Math.min(participants.length, 5)})
-                        </div>
-                        <div id="participants-${raffle.id}" style="max-height: 150px; overflow-y: auto;">
-                            ${participants.length === 0 ? 
-                                '<p style="text-align: center; color: #6B7280; padding: 1rem;">No entries yet. Be the first!</p>' :
-                                participants.slice(-5).reverse().map(p => `
-                                    <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem; background: #F9FAFB; border-radius: 6px; margin-bottom: 0.5rem;">
-                                        <span style="font-size: 1.5rem;">${p.avatar}</span>
-                                        <span style="font-size: 0.875rem; color: #6B7280;">${p.address.slice(0, 6)}...${p.address.slice(-4)}</span>
-                                    </div>
-                                `).join('')
-                            }
-                        </div>
-                    </div>
+            ` : ''}
+            
+            <!-- Entry Button -->
+            <button 
+                class="entry-button" 
+                onclick="enterRaffle('${raffle.id}')"
+                ${!appState.isConnected ? 'disabled' : ''}
+            >
+                ${appState.isConnected ? '🎫 Enter Raffle Now' : '🔒 Connect Wallet First'}
+            </button>
+            
+            <!-- Live Participants List -->
+            <div class="participants-section">
+                <div class="participants-header">
+                    <div class="participants-title">📜 Live Participants</div>
+                    <div class="participants-count">${filledSpots} ${filledSpots === 1 ? 'entry' : 'entries'}</div>
+                </div>
+                <div class="participants-list" id="participants-list-${raffle.id}">
+                    ${participants.length === 0 ? 
+                        '<div class="empty-state"><div class="empty-state-text">No entries yet. Be the first!</div></div>' :
+                        participants.map((p, index) => `
+                            <div class="participant-item">
+                                <div class="participant-avatar">${p.avatar}</div>
+                                <div class="participant-info">
+                                    <div class="participant-address">${p.address.slice(0, 6)}...${p.address.slice(-4)}</div>
+                                    <div class="participant-time">${getTimeAgo(p.timestamp)}</div>
+                                </div>
+                                <div class="participant-number">#${index + 1}</div>
+                            </div>
+                        `).join('')
+                    }
                 </div>
             </div>
         </div>
     `;
+}
+
+function getTimeAgo(timestamp) {
+    const seconds = Math.floor((Date.now() - timestamp) / 1000);
+    
+    if (seconds < 60) return 'just now';
+    if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
+    if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
+    return Math.floor(seconds / 86400) + 'd ago';
 }
 
 function startCountdown(raffleId, endTime) {
@@ -364,8 +415,7 @@ function startCountdown(raffleId, endTime) {
         if (!countdownEl) return;
         
         if (timeLeft <= 0) {
-            countdownEl.textContent = '🏆 Draw Complete!';
-            countdownEl.style.color = '#FCD34D';
+            countdownEl.textContent = '🏆 Drawing Winner...';
             return;
         }
         
@@ -379,6 +429,30 @@ function startCountdown(raffleId, endTime) {
     
     updateCountdown();
     setInterval(updateCountdown, 1000);
+}
+
+async function updateParticipantLists() {
+    for (const raffle of appState.activeRaffles) {
+        const listEl = document.getElementById(`participants-list-${raffle.id}`);
+        if (!listEl) continue;
+        
+        const participants = await raffleAPI.getParticipants(raffle.id);
+        
+        if (participants.length === 0) {
+            listEl.innerHTML = '<div class="empty-state"><div class="empty-state-text">No entries yet. Be the first!</div></div>';
+        } else {
+            listEl.innerHTML = participants.map((p, index) => `
+                <div class="participant-item">
+                    <div class="participant-avatar">${p.avatar}</div>
+                    <div class="participant-info">
+                        <div class="participant-address">${p.address.slice(0, 6)}...${p.address.slice(-4)}</div>
+                        <div class="participant-time">${getTimeAgo(p.timestamp)}</div>
+                    </div>
+                    <div class="participant-number">#${index + 1}</div>
+                </div>
+            `).join('');
+        }
+    }
 }
 
 async function enterRaffle(raffleId) {
@@ -398,7 +472,6 @@ async function enterRaffle(raffleId) {
         
         const amountInWei = '0x' + (raffle.entryFee * 1e18).toString(16);
         
-        // Check balance
         const balance = await window.ethereum.request({
             method: 'eth_getBalance',
             params: [appState.walletAddress, 'latest']
@@ -424,7 +497,6 @@ async function enterRaffle(raffleId) {
         
         showGlobalStatus('⏳ Transaction submitted. Waiting for confirmation...', 'success');
         
-        // Wait for confirmation
         let confirmed = false;
         let attempts = 0;
         while (!confirmed && attempts < 30) {
@@ -445,7 +517,6 @@ async function enterRaffle(raffleId) {
             }
         }
         
-        // Add participant via API
         const newParticipant = {
             address: appState.walletAddress,
             entries: 1,
@@ -456,7 +527,6 @@ async function enterRaffle(raffleId) {
         
         await raffleAPI.addParticipant(raffleId, newParticipant);
         
-        // Save transaction via API
         const transaction = {
             from: appState.walletAddress,
             amount: raffle.entryFee,
@@ -466,9 +536,12 @@ async function enterRaffle(raffleId) {
         
         await raffleAPI.addTransaction(raffleId, transaction);
         
-        showGlobalStatus(`🎉 Successfully entered ${raffle.title}!`, 'success');
+        // Get entry number
+        const participants = await raffleAPI.getParticipants(raffleId);
+        const entryNumber = participants.length;
         
-        // Reload raffles to update UI
+        showGlobalStatus(`🎉 Success! You're entry #${entryNumber} in ${raffle.title}!`, 'success');
+        
         loadAllActiveRaffles();
         
     } catch (error) {
@@ -485,41 +558,35 @@ async function enterRaffle(raffleId) {
 function showGlobalStatus(message, type) {
     const statusEl = document.getElementById('globalStatusMessage');
     statusEl.textContent = message;
-    statusEl.className = `status-message ${type}`;
-    statusEl.style.display = 'block';
+    statusEl.className = `status-message ${type} show`;
     
     setTimeout(() => {
-        statusEl.style.display = 'none';
+        statusEl.classList.remove('show');
     }, 5000);
 }
 
 async function checkForRaffleUpdates() {
     const activeRaffles = await raffleAPI.getActiveRaffles();
     
-    // Check if number of active raffles changed
     if (activeRaffles.length !== appState.activeRaffles.length) {
         console.log('Raffle count changed, reloading...');
         loadAllActiveRaffles();
     }
 }
 
-// Automatic winner selection and payment
 async function checkAndDrawWinner() {
     const allRaffles = await raffleAPI.getAllRaffles();
     const now = Date.now();
     
     for (const raffle of allRaffles) {
-        // Check if raffle has ended and hasn't been drawn yet
         if (raffle.endTime <= now && raffle.status === 'active' && raffle.autoDrawEnabled) {
             const participants = await raffleAPI.getParticipants(raffle.id);
             
-            // Need at least 2 participants to draw
             if (participants.length >= 2) {
                 console.log(`Drawing winner for raffle: ${raffle.id}`);
                 await drawWinnerAndPay(raffle, participants);
             } else {
                 console.log(`Not enough participants for raffle: ${raffle.id}`);
-                // Mark as completed without winner via API
                 await raffleAPI.updateRaffle(raffle.id, {
                     status: 'completed',
                     winner: null,
@@ -530,16 +597,13 @@ async function checkAndDrawWinner() {
     }
 }
 
-// Draw winner randomly and process payment
 async function drawWinnerAndPay(raffle, participants) {
     try {
-        // Select random winner
         const randomIndex = Math.floor(Math.random() * participants.length);
         const winner = participants[randomIndex];
         
         console.log(`Winner selected: ${winner.address}`);
         
-        // Update raffle status via API
         await raffleAPI.updateRaffle(raffle.id, {
             status: 'completed',
             winner: winner.address,
@@ -548,14 +612,8 @@ async function drawWinnerAndPay(raffle, participants) {
             winnerDrawnAt: Date.now()
         });
         
-        // Show winner announcement
         showGlobalStatus(`🎉 Winner Selected! ${winner.address.slice(0, 6)}...${winner.address.slice(-4)} won ${raffle.prizePool} ETH!`, 'success');
         
-        // Note: Actual payment would require admin wallet connection
-        // This is a placeholder for the payment logic
-        console.log(`Payment of ${raffle.prizePool} ETH should be sent to ${winner.address}`);
-        
-        // Store winner info for admin to process payment
         const winnerInfo = {
             raffleId: raffle.id,
             raffleTitle: raffle.title,
@@ -569,8 +627,8 @@ async function drawWinnerAndPay(raffle, participants) {
         
         await raffleAPI.addWinner(winnerInfo);
         
-        // Reload to show updated status
         loadAllActiveRaffles();
+        checkForWinners();
         
     } catch (error) {
         console.error('Error drawing winner:', error);
@@ -579,4 +637,5 @@ async function drawWinnerAndPay(raffle, participants) {
 
 // Make functions globally accessible
 window.enterRaffle = enterRaffle;
+window.claimReward = claimReward;
 window.drawWinnerAndPay = drawWinnerAndPay;
