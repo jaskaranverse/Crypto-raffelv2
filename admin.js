@@ -243,27 +243,40 @@ async function createRaffle(e) {
         const raffle = {
             ...raffleData,
             id: 'raffle_' + Date.now(),
+            created_at: Date.now(),
             createdAt: Date.now(),
+            end_time: endTime,
+            wallet_address: raffleData.walletAddress,
+            prize_pool: raffleData.prizePool,
+            entry_fee: raffleData.entryFee,
+            total_spots: raffleData.totalSpots,
+            max_per_wallet: raffleData.maxPerWallet,
             status: 'active',
+            auto_draw_enabled: true,
             autoDrawEnabled: true
         };
         
-        await saveRaffle(raffle);
-        
-        // Show success message
-        const successMsg = document.getElementById('createSuccessMessage');
-        successMsg.innerHTML = '✅ Raffle created successfully! <a href="index.html" style="color: #2563EB; text-decoration: underline; margin-left: 0.5rem;">View on main site →</a>';
-        successMsg.style.background = '#F0FDF4';
-        successMsg.style.borderColor = '#16A34A';
-        successMsg.style.color = '#16A34A';
-        successMsg.classList.add('show');
-        
-        setTimeout(() => {
-            successMsg.classList.remove('show');
-        }, 8000);
-        
-        console.log('Raffle created:', raffle);
-        console.log('🎰 Raffle is now live on the main website!');
+        try {
+            await saveRaffle(raffle);
+            
+            // Show success message
+            const successMsg = document.getElementById('createSuccessMessage');
+            successMsg.innerHTML = '✅ Raffle created successfully! <a href="index.html" style="color: #2563EB; text-decoration: underline; margin-left: 0.5rem;">View on main site →</a>';
+            successMsg.style.background = '#F0FDF4';
+            successMsg.style.borderColor = '#16A34A';
+            successMsg.style.color = '#16A34A';
+            successMsg.classList.add('show');
+            
+            setTimeout(() => {
+                successMsg.classList.remove('show');
+            }, 8000);
+            
+            console.log('Raffle created:', raffle);
+            console.log('🎰 Raffle is now live on the main website!');
+        } catch (error) {
+            // Error already shown in saveRaffle function
+            return;
+        }
     }
     
     // Reset form
@@ -285,10 +298,13 @@ async function updateRaffle(raffleId, newData) {
 
 async function saveRaffle(raffle) {
     try {
-        await raffleAPI.createRaffle(raffle);
-        console.log('Raffle saved:', raffle.id);
+        console.log('Attempting to save raffle:', raffle);
+        const result = await raffleAPI.createRaffle(raffle);
+        console.log('Raffle saved successfully:', result);
+        return result;
     } catch (error) {
         console.error('Error saving raffle:', error);
+        alert('❌ Error creating raffle: ' + error.message + '\n\nMake sure you ran the SQL schema in Supabase!');
         throw error;
     }
 }
