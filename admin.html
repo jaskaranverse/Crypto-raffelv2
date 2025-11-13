@@ -493,6 +493,30 @@
                     <input type="text" class="form-input" value="Ethereum (Mainnet/Sepolia)" disabled>
                 </div>
             </div>
+            
+            <div class="admin-card">
+                <h3 class="admin-card-header">🔄 Sync Data to GitHub</h3>
+                <p style="color: #6B7280; margin-bottom: 1.5rem;">
+                    Export your raffle data and upload it to GitHub so all users can see the same raffles.
+                </p>
+                
+                <div style="background: #EFF6FF; border: 1px solid #3B82F6; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;">
+                    <h4 style="font-weight: 600; color: #1E40AF; margin-bottom: 0.5rem;">📝 How to Sync:</h4>
+                    <ol style="color: #1E40AF; margin: 0; padding-left: 1.5rem;">
+                        <li>Click "Export Data for GitHub" below</li>
+                        <li>Save the downloaded raffles.json file</li>
+                        <li>Go to your GitHub repository</li>
+                        <li>Navigate to data/raffles.json</li>
+                        <li>Click "Edit" and replace content with downloaded file</li>
+                        <li>Commit changes</li>
+                        <li>All users will now see your raffles!</li>
+                    </ol>
+                </div>
+                
+                <button class="admin-button" onclick="exportDataForGitHub()" style="width: 100%;">
+                    📤 Export Data for GitHub
+                </button>
+            </div>
         </div>
     </div>
 

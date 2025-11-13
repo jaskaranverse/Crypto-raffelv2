@@ -663,9 +663,19 @@ function editRaffle(raffleId) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+// Export data for GitHub sync
+async function exportDataForGitHub() {
+    try {
+        await raffleAPI.exportForGitHub();
+    } catch (error) {
+        alert('❌ Error exporting data: ' + error.message);
+    }
+}
+
 // Make functions globally accessible
 window.viewRaffleDetails = viewRaffleDetails;
 window.deleteRaffle = deleteRaffle;
 window.editRaffle = editRaffle;
 window.copyToClipboard = copyToClipboard;
 window.markWinnerPaid = markWinnerPaid;
+window.exportDataForGitHub = exportDataForGitHub;
