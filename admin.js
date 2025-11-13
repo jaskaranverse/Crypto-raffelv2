@@ -109,6 +109,24 @@ async function connectAdminWallet() {
 }
 
 async function authenticateAdmin(address) {
+    // Check if this wallet is authorized (from config.js)
+    const authorizedAdmin = RAFFLE_CONFIG.ADMIN_ADDRESS.toLowerCase();
+    const connectingWallet = address.toLowerCase();
+    
+    if (connectingWallet !== authorizedAdmin) {
+        alert('❌ Access Denied! This wallet is not authorized as admin.\n\nAuthorized wallet: ' + RAFFLE_CONFIG.ADMIN_ADDRESS);
+        
+        // Disconnect and stay on auth screen
+        adminState.isAuthenticated = false;
+        adminState.adminAddress = null;
+        document.getElementById('authOverlay').style.display = 'flex';
+        document.getElementById('adminPanel').style.display = 'none';
+        
+        console.log('Access denied for:', address);
+        return;
+    }
+    
+    // Wallet is authorized - grant access
     adminState.isAuthenticated = true;
     adminState.adminAddress = address;
     
@@ -120,7 +138,7 @@ async function authenticateAdmin(address) {
     document.getElementById('adminAddressDisplay').value = address;
     document.getElementById('walletAddress').value = address;
     
-    console.log('Admin authenticated:', address);
+    console.log('✅ Admin authenticated:', address);
 }
 
 function handleAccountChange(accounts) {
