@@ -139,9 +139,12 @@ function handleAccountChange(accounts) {
 function createRaffle(e) {
     e.preventDefault();
     
+    const form = e.target;
+    const editingId = form.dataset.editingId;
+    const isEditing = !!editingId;
+    
     // Get form values
-    const raffle = {
-        id: 'raffle_' + Date.now(),
+    const raffleData = {
         title: document.getElementById('raffleTitle').value,
         description: document.getElementById('raffleDescription').value,
         walletAddress: document.getElementById('walletAddress').value,
@@ -149,41 +152,95 @@ function createRaffle(e) {
         entryFee: parseFloat(document.getElementById('entryFee').value),
         totalSpots: parseInt(document.getElementById('totalSpots').value),
         maxPerWallet: parseInt(document.getElementById('maxPerWallet').value),
-        duration: parseInt(document.getElementById('duration').value),
-        createdAt: Date.now(),
-        endTime: Date.now() + (parseInt(document.getElementById('duration').value) * 24 * 60 * 60 * 1000),
-        status: 'active',
-        participants: [],
-        transactions: []
+        duration: parseInt(document.getElementById('duration').value)
     };
     
     // Validate wallet address
-    if (!raffle.walletAddress.startsWith('0x') || raffle.walletAddress.length !== 42) {
+    if (!raffleData.walletAddress.startsWith('0x') || raffleData.walletAddress.length !== 42) {
         alert('❌ Invalid wallet address format');
         return;
     }
     
-    // Save raffle
-    saveRaffle(raffle);
-    
-    // Show success message with link to main site
-    const successMsg = document.getElementById('createSuccessMessage');
-    successMsg.innerHTML = '✅ Raffle created successfully! <a href="index.html" style="color: #2563EB; text-decoration: underline; margin-left: 0.5rem;">View on main site →</a>';
-    successMsg.classList.add('show');
-    setTimeout(() => {
-        successMsg.classList.remove('show');
-        successMsg.innerHTML = '✅ Raffle created successfully!';
-    }, 8000);
+    if (isEditing) {
+        // Update existing raffle
+        updateRaffle(editingId, raffleData);
+        
+        // Show success message
+        const successMsg = document.getElementById('createSuccessMessage');
+        successMsg.innerHTML = '✅ Raffle updated successfully! <a href="index.html" style="color: #2563EB; text-decoration: underline; margin-left: 0.5rem;">View on main site →</a>';
+        successMsg.style.background = '#F0FDF4';
+        successMsg.style.borderColor = '#16A34A';
+        successMsg.style.color = '#16A34A';
+        successMsg.classList.add('show');
+        
+        // Reset form state
+        delete form.dataset.editingId;
+        const submitBtn = form.querySelector('button[type="submit"]');
+        submitBtn.textContent = '🎰 Create Raffle';
+        submitBtn.style.background = '#2563EB';
+        
+        setTimeout(() => {
+            successMsg.classList.remove('show');
+        }, 5000);
+    } else {
+        // Create new raffle
+        const raffle = {
+            ...raffleData,
+            id: 'raffle_' + Date.now(),
+            createdAt: Date.now(),
+            endTime: Date.now() + (raffleData.duration * 24 * 60 * 60 * 1000),
+            status: 'active',
+            participants: [],
+            transactions: []
+        };
+        
+        saveRaffle(raffle);
+        
+        // Show success message
+        const successMsg = document.getElementById('createSuccessMessage');
+        successMsg.innerHTML = '✅ Raffle created successfully! <a href="index.html" style="color: #2563EB; text-decoration: underline; margin-left: 0.5rem;">View on main site →</a>';
+        successMsg.style.background = '#F0FDF4';
+        successMsg.style.borderColor = '#16A34A';
+        successMsg.style.color = '#16A34A';
+        successMsg.classList.add('show');
+        
+        setTimeout(() => {
+            successMsg.classList.remove('show');
+        }, 8000);
+        
+        console.log('Raffle created:', raffle);
+        console.log('🎰 Raffle is now live on the main website!');
+    }
     
     // Reset form
-    document.getElementById('createRaffleForm').reset();
+    form.reset();
     document.getElementById('walletAddress').value = adminState.adminAddress;
     
     // Reload raffle list
     loadRaffles();
+}
+
+function updateRaffle(raffleId, newData) {
+    const raffles = JSON.parse(localStorage.getItem('allRaffles') || '[]');
+    const raffleIndex = raffles.findIndex(r => r.id === raffleId);
     
-    console.log('Raffle created:', raffle);
-    console.log('🎰 Raffle is now live on the main website!');
+    if (raffleIndex === -1) {
+        alert('❌ Raffle not found');
+        return;
+    }
+    
+    // Keep existing data but update with new values
+    const existingRaffle = raffles[raffleIndex];
+    raffles[raffleIndex] = {
+        ...existingRaffle,
+        ...newData,
+        endTime: Date.now() + (newData.duration * 24 * 60 * 60 * 1000)
+    };
+    
+    // Save updated list
+    localStorage.setItem('allRaffles', JSON.stringify(raffles));
+    
+    console.log('Raffle updated:', raffleId);
 }
 
 function saveRaffle(raffle) {
@@ -249,11 +306,14 @@ function displayRaffles() {
                     <button class="admin-button" onclick="viewRaffleDetails('${raffle.id}')">
                         👁️ View Details
                     </button>
-                    ${!isActive ? `
-                        <button class="admin-button danger" onclick="deleteRaffle('${raffle.id}')">
-                            🗑️ Delete
+                    ${isActive ? `
+                        <button class="admin-button" onclick="editRaffle('${raffle.id}')" style="background: #F59E0B;">
+                            ✏️ Edit
                         </button>
                     ` : ''}
+                    <button class="admin-button danger" onclick="deleteRaffle('${raffle.id}')">
+                        🗑️ Delete
+                    </button>
                 </div>
             </div>
         `;
@@ -546,8 +606,50 @@ function markWinnerPaid(raffleId) {
     alert('✅ Winner payment marked as complete!');
 }
 
+function editRaffle(raffleId) {
+    const raffle = adminState.raffles.find(r => r.id === raffleId);
+    if (!raffle) return;
+    
+    // Switch to create tab
+    switchTab('create');
+    
+    // Fill form with existing data
+    document.getElementById('raffleTitle').value = raffle.title;
+    document.getElementById('raffleDescription').value = raffle.description;
+    document.getElementById('walletAddress').value = raffle.walletAddress;
+    document.getElementById('prizePool').value = raffle.prizePool;
+    document.getElementById('entryFee').value = raffle.entryFee;
+    document.getElementById('totalSpots').value = raffle.totalSpots;
+    document.getElementById('maxPerWallet').value = raffle.maxPerWallet;
+    
+    // Calculate remaining days
+    const remainingDays = Math.ceil((raffle.endTime - Date.now()) / (24 * 60 * 60 * 1000));
+    document.getElementById('duration').value = Math.max(1, remainingDays);
+    
+    // Change form submit behavior
+    const form = document.getElementById('createRaffleForm');
+    const submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn.textContent = '💾 Update Raffle';
+    submitBtn.style.background = '#F59E0B';
+    
+    // Store raffle ID for update
+    form.dataset.editingId = raffleId;
+    
+    // Show info message
+    const successMsg = document.getElementById('createSuccessMessage');
+    successMsg.innerHTML = '✏️ Editing raffle: ' + raffle.title;
+    successMsg.style.background = '#FEF3C7';
+    successMsg.style.borderColor = '#F59E0B';
+    successMsg.style.color = '#92400E';
+    successMsg.classList.add('show');
+    
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 // Make functions globally accessible
 window.viewRaffleDetails = viewRaffleDetails;
 window.deleteRaffle = deleteRaffle;
+window.editRaffle = editRaffle;
 window.copyToClipboard = copyToClipboard;
 window.markWinnerPaid = markWinnerPaid;
