@@ -1,282 +1,318 @@
-// Supabase configuration
-const SUPABASE_URL = 'https://mlfjoinf wljransiompk.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1sZmpvaW5md2xqcmFuc2lvbXBrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwNDcwNzQsImV4cCI6MjA3ODYyMzA3NH0.10wfmzWNhrTf_z_7IvQLcIPm4iZPr-cnWKNQ2etVEs8';
+// LocalStorage-based API Service (No Database Required!)
+// All data stored in browser localStorage - simple and instant!
 
 class RaffleAPI {
     constructor() {
-        this.headers = {
-            'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${SUPABASE_KEY}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=representation'
+        this.storageKeys = {
+            raffles: 'crypto_raffles',
+            participants: 'crypto_participants',
+            transactions: 'crypto_transactions',
+            winners: 'crypto_winners'
         };
+        
+        // Initialize storage if empty
+        this.initializeStorage();
     }
 
-    async getAllRaffles() {
+    initializeStorage() {
+        if (!localStorage.getItem(this.storageKeys.raffles)) {
+            localStorage.setItem(this.storageKeys.raffles, JSON.stringify([]));
+        }
+        if (!localStorage.getItem(this.storageKeys.participants)) {
+            localStorage.setItem(this.storageKeys.participants, JSON.stringify([]));
+        }
+        if (!localStorage.getItem(this.storageKeys.transactions)) {
+            localStorage.setItem(this.storageKeys.transactions, JSON.stringify([]));
+        }
+        if (!localStorage.getItem(this.storageKeys.winners)) {
+            localStorage.setItem(this.storageKeys.winners, JSON.stringify([]));
+        }
+    }
+
+    // Helper methods
+    getData(key) {
         try {
-            const response = await fetch(`${SUPABASE_URL}/rest/v1/raffles?select=*`, {
-                headers: this.headers
-            });
-            return await response.json();
+            return JSON.parse(localStorage.getItem(key)) || [];
         } catch (error) {
-            console.error('Error:', error);
+            console.error('Error reading from localStorage:', error);
             return [];
         }
+    }
+
+    setData(key, data) {
+        try {
+            localStorage.setItem(key, JSON.stringify(data));
+            return true;
+        } catch (error) {
+            console.error('Error writing to localStorage:', error);
+            return false;
+        }
+    }
+
+    // Raffle Methods
+    async getAllRaffles() {
+        return this.getData(this.storageKeys.raffles);
     }
 
     async getActiveRaffles() {
         const now = Date.now();
-        try {
-            const response = await fetch(
-                `${SUPABASE_URL}/rest/v1/raffles?select=*&status=eq.active&end_time=gt.${now}`,
-                { headers: this.headers }
-            );
-            return await response.json();
-        } catch (error) {
-            console.error('Error:', error);
-            return [];
-        }
+        const allRaffles = this.getData(this.storageKeys.raffles);
+        return allRaffles.filter(r => r.end_time > now && r.status === 'active');
     }
 
     async getRaffle(raffleId) {
-        try {
-            const response = await fetch(
-                `${SUPABASE_URL}/rest/v1/raffles?select=*&id=eq.${raffleId}`,
-                { headers: this.headers }
-            );
-            const data = await response.json();
-            return data[0] || null;
-        } catch (error) {
-            console.error('Error:', error);
-            return null;
-        }
+        const raffles = this.getData(this.storageKeys.raffles);
+        return raffles.find(r => r.id === raffleId) || null;
     }
 
     async createRaffle(raffleData) {
-        try {
-            const response = await fetch(`${SUPABASE_URL}/rest/v1/raffles`, {
-                method: 'POST',
-                headers: this.headers,
-                body: JSON.stringify(raffleData)
-            });
-            const data = await response.json();
-            return data[0] || data;
-        } catch (error) {
-            console.error('Error:', error);
-            throw error;
-        }
+        const raffles = this.getData(this.storageKeys.raffles);
+        
+        // Ensure all required fields are present
+        const newRaffle = {
+            id: raffleData.id || 'raffle_' + Date.now(),
+            title: raffleData.title,
+            description: raffleData.description,
+            walletAddress: raffleData.walletAddress || raffleData.wallet_address,
+            prizePool: raffleData.prizePool || raffleData.prize_pool,
+            entryFee: raffleData.entryFee || raffleData.entry_fee,
+            totalSpots: raffleData.totalSpots || raffleData.total_spots,
+            maxPerWallet: raffleData.maxPerWallet || raffleData.max_per_wallet,
+            endTime: raffleData.endTime || raffleData.end_time,
+            createdAt: raffleData.createdAt || raffleData.created_at || Date.now(),
+            status: raffleData.status || 'active',
+            winner: raffleData.winner || null,
+            winnerAvatar: raffleData.winnerAvatar || null,
+            completedAt: raffleData.completedAt || null,
+            winnerDrawnAt: raffleData.winnerDrawnAt || null,
+            autoDrawEnabled: raffleData.autoDrawEnabled !== undefined ? raffleData.autoDrawEnabled : true,
+            // Add snake_case versions for compatibility
+            wallet_address: raffleData.walletAddress || raffleData.wallet_address,
+            prize_pool: raffleData.prizePool || raffleData.prize_pool,
+            entry_fee: raffleData.entryFee || raffleData.entry_fee,
+            total_spots: raffleData.totalSpots || raffleData.total_spots,
+            max_per_wallet: raffleData.maxPerWallet || raffleData.max_per_wallet,
+            end_time: raffleData.endTime || raffleData.end_time,
+            created_at: raffleData.createdAt || raffleData.created_at || Date.now(),
+            auto_draw_enabled: raffleData.autoDrawEnabled !== undefined ? raffleData.autoDrawEnabled : true
+        };
+        
+        raffles.push(newRaffle);
+        this.setData(this.storageKeys.raffles, raffles);
+        return newRaffle;
     }
 
-    async updateRaffle(raffleId, raffleData) {
-        try {
-            const response = await fetch(
-                `${SUPABASE_URL}/rest/v1/raffles?id=eq.${raffleId}`,
-                {
-                    method: 'PATCH',
-                    headers: this.headers,
-                    body: JSON.stringify(raffleData)
-                }
-            );
-            return await response.json();
-        } catch (error) {
-            console.error('Error:', error);
-            throw error;
+    async updateRaffle(raffleId, updates) {
+        const raffles = this.getData(this.storageKeys.raffles);
+        const index = raffles.findIndex(r => r.id === raffleId);
+        
+        if (index === -1) {
+            throw new Error('Raffle not found');
         }
+        
+        raffles[index] = { ...raffles[index], ...updates };
+        this.setData(this.storageKeys.raffles, raffles);
+        return raffles[index];
     }
 
     async deleteRaffle(raffleId) {
-        try {
-            const response = await fetch(
-                `${SUPABASE_URL}/rest/v1/raffles?id=eq.${raffleId}`,
-                {
-                    method: 'DELETE',
-                    headers: this.headers
-                }
-            );
-            return { message: 'Raffle deleted successfully' };
-        } catch (error) {
-            console.error('Error:', error);
-            throw error;
-        }
+        let raffles = this.getData(this.storageKeys.raffles);
+        raffles = raffles.filter(r => r.id !== raffleId);
+        this.setData(this.storageKeys.raffles, raffles);
+        
+        // Also delete associated participants and transactions
+        let participants = this.getData(this.storageKeys.participants);
+        participants = participants.filter(p => p.raffle_id !== raffleId && p.raffleId !== raffleId);
+        this.setData(this.storageKeys.participants, participants);
+        
+        let transactions = this.getData(this.storageKeys.transactions);
+        transactions = transactions.filter(t => t.raffle_id !== raffleId && t.raffleId !== raffleId);
+        this.setData(this.storageKeys.transactions, transactions);
+        
+        return { message: 'Raffle deleted successfully' };
     }
 
+    // Participant Methods
     async getParticipants(raffleId) {
-        try {
-            const response = await fetch(
-                `${SUPABASE_URL}/rest/v1/participants?select=*&raffle_id=eq.${raffleId}&order=timestamp.desc`,
-                { headers: this.headers }
-            );
-            return await response.json();
-        } catch (error) {
-            console.error('Error:', error);
-            return [];
-        }
+        const participants = this.getData(this.storageKeys.participants);
+        return participants.filter(p => p.raffle_id === raffleId || p.raffleId === raffleId);
     }
 
     async addParticipant(raffleId, participantData) {
-        try {
-            const response = await fetch(`${SUPABASE_URL}/rest/v1/participants`, {
-                method: 'POST',
-                headers: this.headers,
-                body: JSON.stringify({ raffle_id: raffleId, ...participantData })
-            });
-            const data = await response.json();
-            return data[0] || data;
-        } catch (error) {
-            console.error('Error:', error);
-            throw error;
-        }
+        const participants = this.getData(this.storageKeys.participants);
+        
+        const newParticipant = {
+            id: 'participant_' + Date.now() + '_' + Math.random(),
+            raffle_id: raffleId,
+            raffleId: raffleId,
+            address: participantData.address,
+            entries: participantData.entries || 1,
+            avatar: participantData.avatar,
+            timestamp: participantData.timestamp || Date.now(),
+            txHash: participantData.txHash || participantData.tx_hash || ''
+        };
+        
+        participants.push(newParticipant);
+        this.setData(this.storageKeys.participants, participants);
+        return newParticipant;
     }
 
     async getAllParticipants() {
-        try {
-            const response = await fetch(
-                `${SUPABASE_URL}/rest/v1/participants?select=*&order=timestamp.desc`,
-                { headers: this.headers }
-            );
-            return await response.json();
-        } catch (error) {
-            console.error('Error:', error);
-            return [];
-        }
+        const participants = this.getData(this.storageKeys.participants);
+        const raffles = this.getData(this.storageKeys.raffles);
+        
+        // Add raffle title to each participant
+        return participants.map(p => {
+            const raffle = raffles.find(r => r.id === p.raffle_id || r.id === p.raffleId);
+            return {
+                ...p,
+                raffleTitle: raffle ? raffle.title : 'Unknown Raffle',
+                entryNumber: participants.filter(pp => 
+                    (pp.raffle_id === p.raffle_id || pp.raffleId === p.raffleId) && 
+                    pp.timestamp <= p.timestamp
+                ).length,
+                totalEntries: participants.filter(pp => 
+                    pp.raffle_id === p.raffle_id || pp.raffleId === p.raffleId
+                ).length
+            };
+        });
     }
 
+    // Transaction Methods
     async getTransactions(raffleId) {
-        try {
-            const response = await fetch(
-                `${SUPABASE_URL}/rest/v1/transactions?select=*&raffle_id=eq.${raffleId}&order=timestamp.desc`,
-                { headers: this.headers }
-            );
-            return await response.json();
-        } catch (error) {
-            console.error('Error:', error);
-            return [];
-        }
+        const transactions = this.getData(this.storageKeys.transactions);
+        return transactions.filter(t => t.raffle_id === raffleId || t.raffleId === raffleId);
     }
 
     async addTransaction(raffleId, transactionData) {
-        try {
-            const response = await fetch(`${SUPABASE_URL}/rest/v1/transactions`, {
-                method: 'POST',
-                headers: this.headers,
-                body: JSON.stringify({ raffle_id: raffleId, from_address: transactionData.from, ...transactionData })
-            });
-            const data = await response.json();
-            return data[0] || data;
-        } catch (error) {
-            console.error('Error:', error);
-            throw error;
-        }
+        const transactions = this.getData(this.storageKeys.transactions);
+        
+        const newTransaction = {
+            id: 'tx_' + Date.now() + '_' + Math.random(),
+            raffle_id: raffleId,
+            raffleId: raffleId,
+            from_address: transactionData.from || transactionData.from_address,
+            from: transactionData.from || transactionData.from_address,
+            amount: transactionData.amount,
+            timestamp: transactionData.timestamp || Date.now(),
+            txHash: transactionData.txHash || transactionData.tx_hash || ''
+        };
+        
+        transactions.push(newTransaction);
+        this.setData(this.storageKeys.transactions, transactions);
+        return newTransaction;
     }
 
+    // Winner Methods
     async getPendingWinners() {
-        try {
-            const response = await fetch(
-                `${SUPABASE_URL}/rest/v1/winners?select=*&payment_status=eq.pending&order=drawn_at.desc`,
-                { headers: this.headers }
-            );
-            return await response.json();
-        } catch (error) {
-            console.error('Error:', error);
-            return [];
-        }
+        const winners = this.getData(this.storageKeys.winners);
+        return winners.filter(w => w.payment_status === 'pending' || w.paymentStatus === 'pending');
     }
 
     async getAllWinners() {
-        try {
-            const response = await fetch(
-                `${SUPABASE_URL}/rest/v1/winners?select=*&order=drawn_at.desc`,
-                { headers: this.headers }
-            );
-            return await response.json();
-        } catch (error) {
-            console.error('Error:', error);
-            return [];
-        }
+        return this.getData(this.storageKeys.winners);
     }
 
     async addWinner(winnerData) {
-        try {
-            const response = await fetch(`${SUPABASE_URL}/rest/v1/winners`, {
-                method: 'POST',
-                headers: this.headers,
-                body: JSON.stringify(winnerData)
-            });
-            const data = await response.json();
-            return data[0] || data;
-        } catch (error) {
-            console.error('Error:', error);
-            throw error;
-        }
+        const winners = this.getData(this.storageKeys.winners);
+        
+        const newWinner = {
+            id: 'winner_' + Date.now(),
+            raffleId: winnerData.raffleId,
+            raffleTitle: winnerData.raffleTitle,
+            winnerAddress: winnerData.winnerAddress,
+            prizeAmount: winnerData.prizeAmount,
+            drawnAt: winnerData.drawnAt || Date.now(),
+            paymentStatus: winnerData.paymentStatus || 'pending',
+            payment_status: winnerData.paymentStatus || 'pending',
+            paidAt: winnerData.paidAt || null,
+            participantNumber: winnerData.participantNumber,
+            totalParticipants: winnerData.totalParticipants
+        };
+        
+        winners.push(newWinner);
+        this.setData(this.storageKeys.winners, winners);
+        return newWinner;
     }
 
     async markWinnerPaid(raffleId) {
-        try {
-            const response = await fetch(
-                `${SUPABASE_URL}/rest/v1/winners?raffle_id=eq.${raffleId}`,
-                {
-                    method: 'PATCH',
-                    headers: this.headers,
-                    body: JSON.stringify({
-                        payment_status: 'paid',
-                        paid_at: Date.now()
-                    })
-                }
-            );
-            return await response.json();
-        } catch (error) {
-            console.error('Error:', error);
-            throw error;
+        const winners = this.getData(this.storageKeys.winners);
+        const index = winners.findIndex(w => w.raffleId === raffleId);
+        
+        if (index === -1) {
+            throw new Error('Winner not found');
         }
+        
+        winners[index].paymentStatus = 'paid';
+        winners[index].payment_status = 'paid';
+        winners[index].paidAt = Date.now();
+        
+        this.setData(this.storageKeys.winners, winners);
+        return winners[index];
     }
 
+    // Statistics
     async getStats() {
-        try {
-            const allRaffles = await this.getAllRaffles();
-            const now = Date.now();
-            const activeRaffles = allRaffles.filter(r => r.end_time > now && r.status === 'active').length;
-            
-            const participantsResponse = await fetch(
-                `${SUPABASE_URL}/rest/v1/participants?select=*`,
-                { headers: this.headers }
-            );
-            const participants = await participantsResponse.json();
-            
-            const transactionsResponse = await fetch(
-                `${SUPABASE_URL}/rest/v1/transactions?select=*`,
-                { headers: this.headers }
-            );
-            const transactions = await transactionsResponse.json();
-            
-            const totalRevenue = transactions.reduce((sum, tx) => sum + parseFloat(tx.amount), 0);
-            
-            const winnersResponse = await fetch(
-                `${SUPABASE_URL}/rest/v1/winners?select=*&payment_status=eq.pending`,
-                { headers: this.headers }
-            );
-            const pendingWinners = await winnersResponse.json();
-            
-            return {
-                activeRaffles,
-                totalParticipants: participants.length,
-                totalRevenue,
-                pendingWinners: pendingWinners.length
-            };
-        } catch (error) {
-            console.error('Error:', error);
-            return {
-                activeRaffles: 0,
-                totalParticipants: 0,
-                totalRevenue: 0,
-                pendingWinners: 0
-            };
+        const raffles = this.getData(this.storageKeys.raffles);
+        const participants = this.getData(this.storageKeys.participants);
+        const transactions = this.getData(this.storageKeys.transactions);
+        const winners = this.getData(this.storageKeys.winners);
+        
+        const now = Date.now();
+        const activeRaffles = raffles.filter(r => r.end_time > now && r.status === 'active').length;
+        const totalRevenue = transactions.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0);
+        const pendingWinners = winners.filter(w => 
+            w.payment_status === 'pending' || w.paymentStatus === 'pending'
+        ).length;
+        
+        return {
+            activeRaffles,
+            totalParticipants: participants.length,
+            totalRevenue,
+            pendingWinners
+        };
+    }
+
+    // Utility Methods
+    clearAllData() {
+        if (confirm('⚠️ This will delete ALL raffle data. Are you sure?')) {
+            localStorage.removeItem(this.storageKeys.raffles);
+            localStorage.removeItem(this.storageKeys.participants);
+            localStorage.removeItem(this.storageKeys.transactions);
+            localStorage.removeItem(this.storageKeys.winners);
+            this.initializeStorage();
+            return true;
         }
+        return false;
+    }
+
+    exportData() {
+        return {
+            raffles: this.getData(this.storageKeys.raffles),
+            participants: this.getData(this.storageKeys.participants),
+            transactions: this.getData(this.storageKeys.transactions),
+            winners: this.getData(this.storageKeys.winners),
+            exportedAt: Date.now()
+        };
+    }
+
+    importData(data) {
+        if (data.raffles) this.setData(this.storageKeys.raffles, data.raffles);
+        if (data.participants) this.setData(this.storageKeys.participants, data.participants);
+        if (data.transactions) this.setData(this.storageKeys.transactions, data.transactions);
+        if (data.winners) this.setData(this.storageKeys.winners, data.winners);
+        return true;
     }
 }
 
+// Create global instance
 const raffleAPI = new RaffleAPI();
 
 // Export for use in other files
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = raffleAPI;
 }
+
+// Add helpful console message
+console.log('✅ Raffle API initialized with localStorage (no database required!)');
+console.log('💾 All data stored in browser - works offline!');
