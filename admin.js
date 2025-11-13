@@ -154,7 +154,7 @@ function handleAccountChange(accounts) {
     }
 }
 
-function createRaffle(e) {
+async function createRaffle(e) {
     e.preventDefault();
     
     const form = e.target;
@@ -239,17 +239,16 @@ function createRaffle(e) {
             successMsg.classList.remove('show');
         }, 5000);
     } else {
-        // Create new raffle
+        // Create new raffle via API
         const raffle = {
             ...raffleData,
             id: 'raffle_' + Date.now(),
             createdAt: Date.now(),
             status: 'active',
-            participants: [],
-            transactions: []
+            autoDrawEnabled: true
         };
         
-        saveRaffle(raffle);
+        await saveRaffle(raffle);
         
         // Show success message
         const successMsg = document.getElementById('createSuccessMessage');
@@ -275,47 +274,31 @@ function createRaffle(e) {
     loadRaffles();
 }
 
-function updateRaffle(raffleId, newData) {
-    const raffles = JSON.parse(localStorage.getItem('allRaffles') || '[]');
-    const raffleIndex = raffles.findIndex(r => r.id === raffleId);
-    
-    if (raffleIndex === -1) {
+async function updateRaffle(raffleId, newData) {
+    try {
+        await raffleAPI.updateRaffle(raffleId, newData);
+        console.log('Raffle updated:', raffleId);
+    } catch (error) {
         alert('❌ Raffle not found');
-        return;
     }
-    
-    // Keep existing data but update with new values
-    const existingRaffle = raffles[raffleIndex];
-    raffles[raffleIndex] = {
-        ...existingRaffle,
-        ...newData
-    };
-    
-    // Save updated list
-    localStorage.setItem('allRaffles', JSON.stringify(raffles));
-    
-    console.log('Raffle updated:', raffleId);
 }
 
-function saveRaffle(raffle) {
-    // Load existing raffles
-    const raffles = JSON.parse(localStorage.getItem('allRaffles') || '[]');
-    
-    // Add new raffle
-    raffles.push(raffle);
-    
-    // Save back to localStorage
-    localStorage.setItem('allRaffles', JSON.stringify(raffles));
-    
-    console.log('Raffle saved:', raffle.id);
+async function saveRaffle(raffle) {
+    try {
+        await raffleAPI.createRaffle(raffle);
+        console.log('Raffle saved:', raffle.id);
+    } catch (error) {
+        console.error('Error saving raffle:', error);
+        throw error;
+    }
 }
 
-function loadRaffles() {
-    adminState.raffles = JSON.parse(localStorage.getItem('allRaffles') || '[]');
+async function loadRaffles() {
+    adminState.raffles = await raffleAPI.getAllRaffles();
     displayRaffles();
 }
 
-function displayRaffles() {
+async function displayRaffles() {
     const raffleList = document.getElementById('raffleList');
     
     if (adminState.raffles.length === 0) {
@@ -326,11 +309,12 @@ function displayRaffles() {
     // Sort raffles by creation date (newest first)
     const sortedRaffles = [...adminState.raffles].sort((a, b) => b.createdAt - a.createdAt);
     
-    raffleList.innerHTML = sortedRaffles.map(raffle => {
+    const raffleCards = [];
+    for (const raffle of sortedRaffles) {
         const isActive = Date.now() < raffle.endTime;
-        const participants = JSON.parse(localStorage.getItem(`raffle_${raffle.id}_participants`) || '[]');
+        const participants = await raffleAPI.getParticipants(raffle.id);
         
-        return `
+        raffleCards.push(`
             <div class="raffle-item">
                 <div class="raffle-info">
                     <span class="raffle-status ${isActive ? 'active' : 'ended'}">
@@ -370,16 +354,18 @@ function displayRaffles() {
                     </button>
                 </div>
             </div>
-        `;
-    }).join('');
+        `);
+    }
+    
+    raffleList.innerHTML = raffleCards.join('');
 }
 
-function viewRaffleDetails(raffleId) {
+async function viewRaffleDetails(raffleId) {
     const raffle = adminState.raffles.find(r => r.id === raffleId);
     if (!raffle) return;
     
-    const participants = JSON.parse(localStorage.getItem(`raffle_${raffleId}_participants`) || '[]');
-    const transactions = JSON.parse(localStorage.getItem(`raffle_${raffleId}_transactions`) || '[]');
+    const participants = await raffleAPI.getParticipants(raffleId);
+    const transactions = await raffleAPI.getTransactions(raffleId);
     
     const totalRevenue = transactions.reduce((sum, tx) => sum + tx.amount, 0);
     
@@ -401,56 +387,38 @@ Wallet: ${raffle.walletAddress}
     `);
 }
 
-function deleteRaffle(raffleId) {
+async function deleteRaffle(raffleId) {
     if (!confirm('Are you sure you want to delete this raffle? This action cannot be undone.')) {
         return;
     }
     
-    // Remove from raffles array
-    adminState.raffles = adminState.raffles.filter(r => r.id !== raffleId);
-    
-    // Save updated list
-    localStorage.setItem('allRaffles', JSON.stringify(adminState.raffles));
-    
-    // Clean up raffle-specific data
-    localStorage.removeItem(`raffle_${raffleId}_participants`);
-    localStorage.removeItem(`raffle_${raffleId}_transactions`);
-    
-    // Reload display
-    displayRaffles();
-    
-    alert('✅ Raffle deleted successfully');
+    try {
+        await raffleAPI.deleteRaffle(raffleId);
+        
+        // Remove from local state
+        adminState.raffles = adminState.raffles.filter(r => r.id !== raffleId);
+        
+        // Reload display
+        await displayRaffles();
+        
+        alert('✅ Raffle deleted successfully');
+    } catch (error) {
+        alert('❌ Error deleting raffle: ' + error.message);
+    }
 }
 
 // Dashboard Functions
-function updateDashboard() {
-    const allRaffles = JSON.parse(localStorage.getItem('allRaffles') || '[]');
-    const now = Date.now();
-    const activeRaffles = allRaffles.filter(r => r.endTime > now);
-    
-    // Count total participants
-    let totalParticipants = 0;
-    let totalRevenue = 0;
-    
-    allRaffles.forEach(raffle => {
-        const participants = JSON.parse(localStorage.getItem(`raffle_${raffle.id}_participants`) || '[]');
-        const transactions = JSON.parse(localStorage.getItem(`raffle_${raffle.id}_transactions`) || '[]');
-        
-        totalParticipants += participants.length;
-        totalRevenue += transactions.reduce((sum, tx) => sum + tx.amount, 0);
-    });
-    
-    // Count pending winners
-    const pendingWinners = JSON.parse(localStorage.getItem('pendingWinnerPayments') || '[]');
-    const unpaidWinners = pendingWinners.filter(w => w.paymentStatus === 'pending');
+async function updateDashboard() {
+    const stats = await raffleAPI.getStats();
     
     // Update dashboard stats
-    document.getElementById('dashActiveRaffles').textContent = activeRaffles.length;
-    document.getElementById('dashTotalParticipants').textContent = totalParticipants;
-    document.getElementById('dashTotalRevenue').textContent = totalRevenue.toFixed(4) + ' ETH';
-    document.getElementById('dashPendingWinners').textContent = unpaidWinners.length;
+    document.getElementById('dashActiveRaffles').textContent = stats.activeRaffles;
+    document.getElementById('dashTotalParticipants').textContent = stats.totalParticipants;
+    document.getElementById('dashTotalRevenue').textContent = stats.totalRevenue.toFixed(4) + ' ETH';
+    document.getElementById('dashPendingWinners').textContent = stats.pendingWinners;
     
     // Update pending winners table
+    const unpaidWinners = await raffleAPI.getPendingWinners();
     displayPendingWinners(unpaidWinners);
 }
 
@@ -499,21 +467,18 @@ function displayPendingWinners(winners) {
     `;
 }
 
-function updateLiveActivity() {
-    const allRaffles = JSON.parse(localStorage.getItem('allRaffles') || '[]');
+async function updateLiveActivity() {
+    const allParticipants = await raffleAPI.getAllParticipants();
     const activities = [];
     
     // Collect all recent activities (last 10)
-    allRaffles.forEach(raffle => {
-        const participants = JSON.parse(localStorage.getItem(`raffle_${raffle.id}_participants`) || '[]');
-        participants.forEach(p => {
-            activities.push({
-                type: 'entry',
-                raffleTitle: raffle.title,
-                address: p.address,
-                timestamp: p.timestamp,
-                avatar: p.avatar
-            });
+    allParticipants.forEach(p => {
+        activities.push({
+            type: 'entry',
+            raffleTitle: p.raffleTitle || 'Unknown Raffle',
+            address: p.address,
+            timestamp: p.timestamp,
+            avatar: p.avatar
         });
     });
     
@@ -544,23 +509,8 @@ function updateLiveActivity() {
     `).join('');
 }
 
-function displayAllParticipants() {
-    const allRaffles = JSON.parse(localStorage.getItem('allRaffles') || '[]');
-    const allParticipants = [];
-    
-    // Collect all participants from all raffles
-    allRaffles.forEach(raffle => {
-        const participants = JSON.parse(localStorage.getItem(`raffle_${raffle.id}_participants`) || '[]');
-        participants.forEach((p, index) => {
-            allParticipants.push({
-                ...p,
-                raffleTitle: raffle.title,
-                raffleId: raffle.id,
-                entryNumber: index + 1,
-                totalEntries: participants.length
-            });
-        });
-    });
+async function displayAllParticipants() {
+    const allParticipants = await raffleAPI.getAllParticipants();
     
     // Sort by timestamp (newest first)
     allParticipants.sort((a, b) => b.timestamp - a.timestamp);
@@ -642,22 +592,18 @@ function copyToClipboard(text) {
     });
 }
 
-function markWinnerPaid(raffleId) {
+async function markWinnerPaid(raffleId) {
     if (!confirm('Confirm that you have sent the prize to the winner?')) {
         return;
     }
     
-    const winners = JSON.parse(localStorage.getItem('pendingWinnerPayments') || '[]');
-    const updatedWinners = winners.map(w => {
-        if (w.raffleId === raffleId) {
-            return { ...w, paymentStatus: 'paid', paidAt: Date.now() };
-        }
-        return w;
-    });
-    
-    localStorage.setItem('pendingWinnerPayments', JSON.stringify(updatedWinners));
-    updateDashboard();
-    alert('✅ Winner payment marked as complete!');
+    try {
+        await raffleAPI.markWinnerPaid(raffleId);
+        await updateDashboard();
+        alert('✅ Winner payment marked as complete!');
+    } catch (error) {
+        alert('❌ Error marking winner as paid: ' + error.message);
+    }
 }
 
 function editRaffle(raffleId) {
