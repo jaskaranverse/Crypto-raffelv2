@@ -18,6 +18,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Check for updates periodically
     setInterval(checkForRaffleUpdates, 5000);
+    
+    // Check for raffle end and auto-draw winner
+    setInterval(checkAndDrawWinner, 10000);
 });
 
 function initializeApp() {
@@ -501,5 +504,86 @@ function checkForRaffleUpdates() {
     }
 }
 
-// Make enterRaffle globally accessible
+// Automatic winner selection and payment
+async function checkAndDrawWinner() {
+    const allRaffles = JSON.parse(localStorage.getItem('allRaffles') || '[]');
+    const now = Date.now();
+    
+    for (const raffle of allRaffles) {
+        // Check if raffle has ended and hasn't been drawn yet
+        if (raffle.endTime <= now && raffle.status === 'active' && raffle.autoDrawEnabled) {
+            const participants = JSON.parse(localStorage.getItem(`raffle_${raffle.id}_participants`) || '[]');
+            
+            // Need at least 2 participants to draw
+            if (participants.length >= 2) {
+                console.log(`Drawing winner for raffle: ${raffle.id}`);
+                await drawWinnerAndPay(raffle, participants);
+            } else {
+                console.log(`Not enough participants for raffle: ${raffle.id}`);
+                // Mark as completed without winner
+                raffle.status = 'completed';
+                raffle.winner = null;
+                raffle.completedAt = now;
+                
+                const updatedRaffles = allRaffles.map(r => r.id === raffle.id ? raffle : r);
+                localStorage.setItem('allRaffles', JSON.stringify(updatedRaffles));
+            }
+        }
+    }
+}
+
+// Draw winner randomly and process payment
+async function drawWinnerAndPay(raffle, participants) {
+    try {
+        // Select random winner
+        const randomIndex = Math.floor(Math.random() * participants.length);
+        const winner = participants[randomIndex];
+        
+        console.log(`Winner selected: ${winner.address}`);
+        
+        // Update raffle status
+        raffle.status = 'completed';
+        raffle.winner = winner.address;
+        raffle.winnerAvatar = winner.avatar;
+        raffle.completedAt = Date.now();
+        raffle.winnerDrawnAt = Date.now();
+        
+        // Save updated raffle
+        const allRaffles = JSON.parse(localStorage.getItem('allRaffles') || '[]');
+        const updatedRaffles = allRaffles.map(r => r.id === raffle.id ? raffle : r);
+        localStorage.setItem('allRaffles', JSON.stringify(updatedRaffles));
+        
+        // Show winner announcement
+        showGlobalStatus(`🎉 Winner Selected! ${winner.address.slice(0, 6)}...${winner.address.slice(-4)} won ${raffle.prizePool} ETH!`, 'success');
+        
+        // Note: Actual payment would require admin wallet connection
+        // This is a placeholder for the payment logic
+        console.log(`Payment of ${raffle.prizePool} ETH should be sent to ${winner.address}`);
+        
+        // Store winner info for admin to process payment
+        const winnerInfo = {
+            raffleId: raffle.id,
+            raffleTitle: raffle.title,
+            winnerAddress: winner.address,
+            prizeAmount: raffle.prizePool,
+            drawnAt: Date.now(),
+            paymentStatus: 'pending',
+            participantNumber: randomIndex + 1,
+            totalParticipants: participants.length
+        };
+        
+        const winners = JSON.parse(localStorage.getItem('pendingWinnerPayments') || '[]');
+        winners.push(winnerInfo);
+        localStorage.setItem('pendingWinnerPayments', JSON.stringify(winners));
+        
+        // Reload to show updated status
+        loadAllActiveRaffles();
+        
+    } catch (error) {
+        console.error('Error drawing winner:', error);
+    }
+}
+
+// Make functions globally accessible
 window.enterRaffle = enterRaffle;
+window.drawWinnerAndPay = drawWinnerAndPay;

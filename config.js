@@ -13,11 +13,13 @@ const RAFFLE_CONFIG = {
     
     // Raffle Settings (can be modified by admin)
     RAFFLE_SETTINGS: {
-        entryFee: 0.001, // Entry fee in ETH (approximately $1-3 depending on ETH price)
-        prizePool: 0.5, // Prize pool in ETH
-        duration: 2 * 24 * 60 * 60 * 1000, // 2 days in milliseconds
-        minParticipants: 1, // Minimum participants to draw winner
-        paymentMethod: 'ETH' // Payment method: ETH or USDC
+        entryFee: 0.0008, // Entry fee in ETH (approximately $2-3 at current ETH prices)
+        prizePool: 0.01, // Prize pool in ETH
+        duration: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
+        minParticipants: 2, // Minimum participants to draw winner
+        maxParticipants: 50, // Maximum participants allowed
+        paymentMethod: 'ETH', // Payment method: ETH or USDC
+        autoDrawEnabled: true // Automatically draw winner when raffle ends
     },
     
     // Network Configuration
