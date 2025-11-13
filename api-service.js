@@ -1,5 +1,5 @@
 // Supabase configuration
-const SUPABASE_URL = 'https://mlfjoinf wljransiomp k.supabase.co';
+const SUPABASE_URL = 'https://mlfjoinf wljransiompk.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1sZmpvaW5md2xqcmFuc2lvbXBrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwNDcwNzQsImV4cCI6MjA3ODYyMzA3NH0.10wfmzWNhrTf_z_7IvQLcIPm4iZPr-cnWKNQ2etVEs8';
 
 class RaffleAPI {
