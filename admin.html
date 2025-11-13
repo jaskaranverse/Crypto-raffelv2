@@ -416,9 +416,51 @@
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">Duration (Days) *</label>
-                        <input type="number" class="form-input" id="duration" required placeholder="2">
-                        <p class="form-help">How many days until the draw</p>
+                        <label class="form-label">End Time Options *</label>
+                        <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                <input type="radio" name="timeOption" value="duration" checked onchange="toggleTimeOptions()">
+                                <span>Set Duration</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                <input type="radio" name="timeOption" value="specific" onchange="toggleTimeOptions()">
+                                <span>Set Specific Date/Time</span>
+                            </label>
+                        </div>
+                        
+                        <!-- Duration Option -->
+                        <div id="durationOption">
+                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
+                                <div>
+                                    <label class="form-label" style="font-size: 0.875rem;">Days</label>
+                                    <input type="number" class="form-input" id="durationDays" min="0" value="2" placeholder="0">
+                                </div>
+                                <div>
+                                    <label class="form-label" style="font-size: 0.875rem;">Hours</label>
+                                    <input type="number" class="form-input" id="durationHours" min="0" max="23" value="0" placeholder="0">
+                                </div>
+                                <div>
+                                    <label class="form-label" style="font-size: 0.875rem;">Minutes</label>
+                                    <input type="number" class="form-input" id="durationMinutes" min="0" max="59" value="0" placeholder="0">
+                                </div>
+                            </div>
+                            <p class="form-help">Set how long the raffle will run (e.g., 2 days, 12 hours, 30 minutes)</p>
+                        </div>
+                        
+                        <!-- Specific Date/Time Option -->
+                        <div id="specificOption" style="display: none;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                <div>
+                                    <label class="form-label" style="font-size: 0.875rem;">End Date</label>
+                                    <input type="date" class="form-input" id="endDate">
+                                </div>
+                                <div>
+                                    <label class="form-label" style="font-size: 0.875rem;">End Time</label>
+                                    <input type="time" class="form-input" id="endTime">
+                                </div>
+                            </div>
+                            <p class="form-help">Choose exact date and time when the raffle should end</p>
+                        </div>
                     </div>
 
                     <button type="submit" class="admin-button" style="width: 100%;">
@@ -455,6 +497,28 @@
     </div>
 
     <script src="config.js"></script>
+    <script>
+        // Toggle between duration and specific time options
+        function toggleTimeOptions() {
+            const timeOption = document.querySelector('input[name="timeOption"]:checked').value;
+            const durationOption = document.getElementById('durationOption');
+            const specificOption = document.getElementById('specificOption');
+            
+            if (timeOption === 'duration') {
+                durationOption.style.display = 'block';
+                specificOption.style.display = 'none';
+            } else {
+                durationOption.style.display = 'none';
+                specificOption.style.display = 'block';
+                
+                // Set default date/time to tomorrow
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                document.getElementById('endDate').value = tomorrow.toISOString().split('T')[0];
+                document.getElementById('endTime').value = '23:59';
+            }
+        }
+    </script>
     <script src="admin.js"></script>
 </body>
 </html>

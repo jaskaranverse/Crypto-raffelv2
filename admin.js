@@ -143,6 +143,44 @@ function createRaffle(e) {
     const editingId = form.dataset.editingId;
     const isEditing = !!editingId;
     
+    // Calculate end time based on selected option
+    let endTime;
+    const timeOption = document.querySelector('input[name="timeOption"]:checked').value;
+    
+    if (timeOption === 'duration') {
+        // Calculate from duration (days, hours, minutes)
+        const days = parseInt(document.getElementById('durationDays').value) || 0;
+        const hours = parseInt(document.getElementById('durationHours').value) || 0;
+        const minutes = parseInt(document.getElementById('durationMinutes').value) || 0;
+        
+        const totalMilliseconds = (days * 24 * 60 * 60 * 1000) +
+                                 (hours * 60 * 60 * 1000) +
+                                 (minutes * 60 * 1000);
+        
+        if (totalMilliseconds === 0) {
+            alert('❌ Please set a duration (at least 1 minute)');
+            return;
+        }
+        
+        endTime = Date.now() + totalMilliseconds;
+    } else {
+        // Use specific date/time
+        const endDate = document.getElementById('endDate').value;
+        const endTimeValue = document.getElementById('endTime').value;
+        
+        if (!endDate || !endTimeValue) {
+            alert('❌ Please select both end date and time');
+            return;
+        }
+        
+        endTime = new Date(endDate + 'T' + endTimeValue).getTime();
+        
+        if (endTime <= Date.now()) {
+            alert('❌ End time must be in the future');
+            return;
+        }
+    }
+    
     // Get form values
     const raffleData = {
         title: document.getElementById('raffleTitle').value,
@@ -152,7 +190,7 @@ function createRaffle(e) {
         entryFee: parseFloat(document.getElementById('entryFee').value),
         totalSpots: parseInt(document.getElementById('totalSpots').value),
         maxPerWallet: parseInt(document.getElementById('maxPerWallet').value),
-        duration: parseInt(document.getElementById('duration').value)
+        endTime: endTime
     };
     
     // Validate wallet address
@@ -188,7 +226,6 @@ function createRaffle(e) {
             ...raffleData,
             id: 'raffle_' + Date.now(),
             createdAt: Date.now(),
-            endTime: Date.now() + (raffleData.duration * 24 * 60 * 60 * 1000),
             status: 'active',
             participants: [],
             transactions: []
@@ -233,8 +270,7 @@ function updateRaffle(raffleId, newData) {
     const existingRaffle = raffles[raffleIndex];
     raffles[raffleIndex] = {
         ...existingRaffle,
-        ...newData,
-        endTime: Date.now() + (newData.duration * 24 * 60 * 60 * 1000)
+        ...newData
     };
     
     // Save updated list
