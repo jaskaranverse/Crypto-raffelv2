@@ -1,0 +1,37 @@
+{
+  "name": "Crypto Raffle Demo",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:18",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "18"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ritwickdey.LiveServer",
+        "esbenp.prettier-vscode",
+        "dbaeumer.vscode-eslint"
+      ],
+      "settings": {
+        "liveServer.settings.port": 5500,
+        "liveServer.settings.donotShowInfoMsg": true,
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+      }
+    }
+  },
+  "forwardPorts": [5500, 8000],
+  "portsAttributes": {
+    "5500": {
+      "label": "Live Server",
+      "onAutoForward": "openBrowser"
+    },
+    "8000": {
+      "label": "HTTP Server",
+      "onAutoForward": "notify"
+    }
+  },
+  "postCreateCommand": "echo '🎉 Codespace ready! Right-click index.html and select Open with Live Server'",
+  "remoteUser": "node"
+}
