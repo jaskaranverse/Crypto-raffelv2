@@ -1,2 +1,0 @@
-Trigger Vercel deployment - Updated: 2025-11-13
-This file triggers a new deployment with the latest demo raffle code.
