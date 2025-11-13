@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test MetaMask Connection</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            text-align: center;
+        }
+        button {
+            background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 10px;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(59, 130, 246, 0.4);
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+        .success {
+            background: #D1FAE5;
+            color: #065F46;
+        }
+        .error {
+            background: #FEE2E2;
+            color: #991B1B;
+        }
+        .info {
+            background: #EEF2FF;
+            color: #3B82F6;
+        }
+    </style>
+</head>
+<body>
+    <h1>🦊 MetaMask Connection Test</h1>
+    <p>This page tests if MetaMask connection works smoothly</p>
+    
+    <div id="metamaskStatus" class="status info">
+        Checking for MetaMask...
+    </div>
+    
+    <button id="connectBtn" onclick="connectWallet()">
+        Connect Wallet
+    </button>
+    
+    <div id="result"></div>
+
+    <script>
+        // Check if MetaMask is installed
+        window.addEventListener('load', () => {
+            const statusDiv = document.getElementById('metamaskStatus');
+            const connectBtn = document.getElementById('connectBtn');
+            
+            if (typeof window.ethereum !== 'undefined') {
+                statusDiv.className = 'status success';
+                statusDiv.textContent = '✅ MetaMask is installed and ready!';
+                connectBtn.disabled = false;
+            } else {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ MetaMask is not installed. Please install MetaMask extension.';
+                connectBtn.disabled = true;
+                connectBtn.textContent = 'Install MetaMask';
+                connectBtn.onclick = () => window.open('https://metamask.io/download/', '_blank');
+            }
+        });
+
+        async function connectWallet() {
+            const resultDiv = document.getElementById('result');
+            const connectBtn = document.getElementById('connectBtn');
+            
+            try {
+                // Disable button and show loading
+                connectBtn.disabled = true;
+                connectBtn.textContent = 'Connecting...';
+                
+                resultDiv.className = 'status info';
+                resultDiv.textContent = '🦊 Opening MetaMask... Please check your browser extension!';
+                
+                console.log('Requesting accounts...');
+                
+                // This will automatically open MetaMask popup
+                const accounts = await window.ethereum.request({ 
+                    method: 'eth_requestAccounts' 
+                });
+                
+                console.log('Accounts received:', accounts);
+                
+                if (accounts.length === 0) {
+                    throw new Error('No accounts found');
+                }
+                
+                const account = accounts[0];
+                const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+                
+                // Success!
+                resultDiv.className = 'status success';
+                resultDiv.innerHTML = `
+                    <strong>✅ Connected Successfully!</strong><br>
+                    Address: ${account}<br>
+                    Network: ${chainId}
+                `;
+                
+                connectBtn.textContent = 'Connected ✓';
+                connectBtn.style.background = 'linear-gradient(135deg, #10B981 0%, #059669 100%)';
+                
+            } catch (error) {
+                console.error('Connection error:', error);
+                
+                resultDiv.className = 'status error';
+                
+                if (error.code === 4001) {
+                    resultDiv.textContent = '❌ Connection rejected. You declined the connection request.';
+                } else if (error.code === -32002) {
+                    resultDiv.textContent = '⏳ Connection request already pending. Please check MetaMask.';
+                } else {
+                    resultDiv.textContent = `❌ Error: ${error.message}`;
+                }
+                
+                connectBtn.disabled = false;
+                connectBtn.textContent = 'Try Again';
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>0.5 ETH Crypto Raffle - Win Big!</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Header Stats Bar -->
+    <header class="header-bar">
+        <div class="header-content">
+            <div class="header-stat">
+                <span class="stat-icon">🎰</span>
+                <div class="stat-info">
+                    <span class="stat-label">Active Raffles</span>
+                    <span class="stat-value" id="headerActiveRaffles">0</span>
+                </div>
+            </div>
+            <div class="header-stat">
+                <span class="stat-icon">👥</span>
+                <div class="stat-info">
+                    <span class="stat-label">Total Participants</span>
+                    <span class="stat-value" id="headerTotalParticipants">0</span>
+                </div>
+            </div>
+            <button class="wallet-button" id="connectWallet">
+                <span>👛</span>
+                <span id="walletText">Connect Wallet</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Page Title -->
+    <div style="max-width: 1400px; margin: 2rem auto; padding: 0 1.5rem;">
+        <h1 style="font-size: 2.5rem; font-weight: 800; color: #111827; text-align: center; margin-bottom: 0.5rem;">
+            🎰 Active Crypto Raffles
+        </h1>
+        <p style="text-align: center; color: #6B7280; font-size: 1.125rem;">
+            Choose a raffle below and enter to win! All raffles are live until they expire.
+        </p>
+    </div>
+
+    <!-- Raffles Container -->
+    <div id="rafflesContainer" style="max-width: 1400px; margin: 0 auto; padding: 0 1.5rem 3rem;">
+        <div id="rafflesList">
+            <!-- Raffles will be dynamically loaded here -->
+            <p style="text-align: center; color: #6B7280; padding: 3rem; font-size: 1.125rem;">
+                No active raffles at the moment. Check back soon!
+            </p>
+        </div>
+    </div>
+
+    <!-- Global Status Message -->
+    <div id="globalStatusMessage" class="status-message" style="position: fixed; top: 80px; left: 50%; transform: translateX(-50%); z-index: 1000; min-width: 300px;"></div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>🎰 Crypto Raffle • Powered by Ethereum Smart Contracts • 100% Transparent & Secure</p>
+        <p class="footer-note">⚠️ This is a DEMO for testing purposes</p>
+    </footer>
+
+    <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js"></script>
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

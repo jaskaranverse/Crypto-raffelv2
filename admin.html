@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Crypto Raffle</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .admin-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+
+        .admin-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .admin-title {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: #111827;
+            margin-bottom: 0.5rem;
+        }
+
+        .admin-subtitle {
+            color: #6B7280;
+            font-size: 1.125rem;
+        }
+
+        .admin-tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            border-bottom: 2px solid #E5E7EB;
+        }
+
+        .admin-tab {
+            padding: 1rem 2rem;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            color: #6B7280;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .admin-tab.active {
+            color: #2563EB;
+            border-bottom-color: #2563EB;
+        }
+
+        .admin-tab:hover {
+            color: #2563EB;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .admin-card {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            margin-bottom: 2rem;
+            border: 1px solid #E5E7EB;
+        }
+
+        .admin-card-header {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #E5E7EB;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+            display: block;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 0.5rem;
+            font-size: 0.95rem;
+        }
+
+        .form-input, .form-textarea {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 2px solid #D1D5DB;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+            font-family: inherit;
+        }
+
+        .form-input:focus, .form-textarea:focus {
+            outline: none;
+            border-color: #2563EB;
+        }
+
+        .form-textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .form-help {
+            font-size: 0.875rem;
+            color: #6B7280;
+            margin-top: 0.25rem;
+        }
+
+        .admin-button {
+            background: #2563EB;
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.2s;
+        }
+
+        .admin-button:hover:not(:disabled) {
+            background: #1D4ED8;
+        }
+
+        .admin-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .admin-button.success {
+            background: #16A34A;
+        }
+
+        .admin-button.danger {
+            background: #DC2626;
+        }
+
+        .raffle-list {
+            display: grid;
+            gap: 1.5rem;
+        }
+
+        .raffle-item {
+            background: #F9FAFB;
+            border: 1px solid #E5E7EB;
+            border-radius: 12px;
+            padding: 1.5rem;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 1.5rem;
+            align-items: start;
+        }
+
+        .raffle-info h3 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 0.5rem;
+        }
+
+        .raffle-meta {
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            margin-top: 0.75rem;
+        }
+
+        .raffle-meta-item {
+            font-size: 0.875rem;
+            color: #6B7280;
+        }
+
+        .raffle-meta-item strong {
+            color: #111827;
+            font-weight: 600;
+        }
+
+        .raffle-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .raffle-status {
+            display: inline-block;
+            padding: 0.375rem 0.875rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .raffle-status.active {
+            background: #F0FDF4;
+            color: #16A34A;
+            border: 1px solid #16A34A;
+        }
+
+        .raffle-status.ended {
+            background: #FEF2F2;
+            color: #DC2626;
+            border: 1px solid #DC2626;
+        }
+
+        .auth-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .auth-modal {
+            background: white;
+            padding: 3rem;
+            border-radius: 12px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .auth-title {
+            font-size: 1.75rem;
+            font-weight: 800;
+            color: #111827;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        .auth-description {
+            color: #6B7280;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #2563EB;
+            text-decoration: none;
+            font-weight: 600;
+            margin-bottom: 2rem;
+            transition: color 0.2s;
+        }
+
+        .back-link:hover {
+            color: #1D4ED8;
+        }
+
+        .success-message {
+            background: #F0FDF4;
+            border: 1px solid #16A34A;
+            color: #16A34A;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            display: none;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <!-- Auth Overlay -->
+    <div class="auth-overlay" id="authOverlay">
+        <div class="auth-modal">
+            <h2 class="auth-title">🔐 Admin Access</h2>
+            <p class="auth-description">Connect your admin wallet to access the control panel</p>
+            <button class="admin-button" id="adminConnectBtn" style="width: 100%;">
+                Connect Admin Wallet
+            </button>
+            <div style="text-align: center; margin-top: 1rem;">
+                <a href="index.html" style="color: #6B7280; text-decoration: none;">← Back to Raffle</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Admin Panel -->
+    <div class="admin-container" id="adminPanel" style="display: none;">
+        <a href="index.html" class="back-link">
+            ← Back to Raffle
+        </a>
+
+        <div class="admin-header">
+            <h1 class="admin-title">🎰 Admin Control Panel</h1>
+            <p class="admin-subtitle">Manage your crypto raffles</p>
+        </div>
+
+        <!-- Tabs -->
+        <div class="admin-tabs">
+            <button class="admin-tab active" data-tab="create">Create Raffle</button>
+            <button class="admin-tab" data-tab="manage">Manage Raffles</button>
+            <button class="admin-tab" data-tab="settings">Settings</button>
+        </div>
+
+        <!-- Create Raffle Tab -->
+        <div class="tab-content active" id="create-tab">
+            <div class="admin-card">
+                <h3 class="admin-card-header">🎫 Create New Raffle</h3>
+                
+                <div id="createSuccessMessage" class="success-message">
+                    ✅ Raffle created successfully!
+                </div>
+
+                <form id="createRaffleForm">
+                    <div class="form-group">
+                        <label class="form-label">Raffle Title *</label>
+                        <input type="text" class="form-input" id="raffleTitle" required placeholder="e.g., 0.5 ETH Raffle">
+                        <p class="form-help">This will be displayed as the main title</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Description *</label>
+                        <textarea class="form-textarea" id="raffleDescription" required placeholder="Win big with just a small entry fee!"></textarea>
+                        <p class="form-help">Describe what participants can win</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Your Wallet Address (to receive payments) *</label>
+                        <input type="text" class="form-input" id="walletAddress" required placeholder="0x...">
+                        <p class="form-help">All entry fees will be sent to this address</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Prize Pool (ETH) *</label>
+                        <input type="number" class="form-input" id="prizePool" step="0.001" required placeholder="0.5">
+                        <p class="form-help">Total prize amount in ETH</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Entry Fee (ETH) *</label>
+                        <input type="number" class="form-input" id="entryFee" step="0.0001" required placeholder="0.001">
+                        <p class="form-help">Cost per entry in ETH</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Total Spots Available *</label>
+                        <input type="number" class="form-input" id="totalSpots" required placeholder="500">
+                        <p class="form-help">Maximum number of entries allowed</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Max Entries Per Wallet *</label>
+                        <input type="number" class="form-input" id="maxPerWallet" required placeholder="10">
+                        <p class="form-help">Maximum entries one wallet can purchase</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Duration (Days) *</label>
+                        <input type="number" class="form-input" id="duration" required placeholder="2">
+                        <p class="form-help">How many days until the draw</p>
+                    </div>
+
+                    <button type="submit" class="admin-button" style="width: 100%;">
+                        🎰 Create Raffle
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Manage Raffles Tab -->
+        <div class="tab-content" id="manage-tab">
+            <div class="admin-card">
+                <h3 class="admin-card-header">📋 Your Raffles</h3>
+                <div class="raffle-list" id="raffleList">
+                    <p style="text-align: center; color: #6B7280; padding: 2rem;">No raffles created yet</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Tab -->
+        <div class="tab-content" id="settings-tab">
+            <div class="admin-card">
+                <h3 class="admin-card-header">⚙️ Admin Settings</h3>
+                <div class="form-group">
+                    <label class="form-label">Your Admin Wallet Address</label>
+                    <input type="text" class="form-input" id="adminAddressDisplay" disabled>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Network</label>
+                    <input type="text" class="form-input" value="Ethereum (Mainnet/Sepolia)" disabled>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="admin.js"></script>
+</body>
+</html>
