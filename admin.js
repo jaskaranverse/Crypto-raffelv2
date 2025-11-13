@@ -9,6 +9,11 @@ let adminState = {
 document.addEventListener('DOMContentLoaded', () => {
     initializeAdminPanel();
     loadRaffles();
+    updateDashboard();
+    
+    // Update dashboard every 5 seconds
+    setInterval(updateDashboard, 5000);
+    setInterval(updateLiveActivity, 3000);
 });
 
 function initializeAdminPanel() {
@@ -43,9 +48,13 @@ function switchTab(tabName) {
     });
     document.getElementById(`${tabName}-tab`).classList.add('active');
     
-    // Reload raffle list if switching to manage tab
+    // Reload data based on active tab
     if (tabName === 'manage') {
         displayRaffles();
+    } else if (tabName === 'dashboard') {
+        updateDashboard();
+    } else if (tabName === 'participants') {
+        displayAllParticipants();
     }
 }
 
@@ -299,6 +308,246 @@ function deleteRaffle(raffleId) {
     alert('✅ Raffle deleted successfully');
 }
 
+// Dashboard Functions
+function updateDashboard() {
+    const allRaffles = JSON.parse(localStorage.getItem('allRaffles') || '[]');
+    const now = Date.now();
+    const activeRaffles = allRaffles.filter(r => r.endTime > now);
+    
+    // Count total participants
+    let totalParticipants = 0;
+    let totalRevenue = 0;
+    
+    allRaffles.forEach(raffle => {
+        const participants = JSON.parse(localStorage.getItem(`raffle_${raffle.id}_participants`) || '[]');
+        const transactions = JSON.parse(localStorage.getItem(`raffle_${raffle.id}_transactions`) || '[]');
+        
+        totalParticipants += participants.length;
+        totalRevenue += transactions.reduce((sum, tx) => sum + tx.amount, 0);
+    });
+    
+    // Count pending winners
+    const pendingWinners = JSON.parse(localStorage.getItem('pendingWinnerPayments') || '[]');
+    const unpaidWinners = pendingWinners.filter(w => w.paymentStatus === 'pending');
+    
+    // Update dashboard stats
+    document.getElementById('dashActiveRaffles').textContent = activeRaffles.length;
+    document.getElementById('dashTotalParticipants').textContent = totalParticipants;
+    document.getElementById('dashTotalRevenue').textContent = totalRevenue.toFixed(4) + ' ETH';
+    document.getElementById('dashPendingWinners').textContent = unpaidWinners.length;
+    
+    // Update pending winners table
+    displayPendingWinners(unpaidWinners);
+}
+
+function displayPendingWinners(winners) {
+    const container = document.getElementById('pendingWinnersTable');
+    
+    if (winners.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #6B7280; padding: 2rem;">No pending winner payments</p>';
+        return;
+    }
+    
+    container.innerHTML = `
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #F3F4F6; text-align: left;">
+                        <th style="padding: 0.75rem; font-weight: 600;">Raffle</th>
+                        <th style="padding: 0.75rem; font-weight: 600;">Winner Address</th>
+                        <th style="padding: 0.75rem; font-weight: 600;">Prize</th>
+                        <th style="padding: 0.75rem; font-weight: 600;">Entry #</th>
+                        <th style="padding: 0.75rem; font-weight: 600;">Drawn At</th>
+                        <th style="padding: 0.75rem; font-weight: 600;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${winners.map(winner => `
+                        <tr style="border-bottom: 1px solid #E5E7EB;">
+                            <td style="padding: 0.75rem;">${winner.raffleTitle}</td>
+                            <td style="padding: 0.75rem; font-family: monospace; font-size: 0.875rem;">
+                                ${winner.winnerAddress.slice(0, 6)}...${winner.winnerAddress.slice(-4)}
+                                <button onclick="copyToClipboard('${winner.winnerAddress}')" style="margin-left: 0.5rem; padding: 0.25rem 0.5rem; background: #E5E7EB; border: none; border-radius: 4px; cursor: pointer;">📋</button>
+                            </td>
+                            <td style="padding: 0.75rem; font-weight: 600; color: #10B981;">${winner.prizeAmount} ETH</td>
+                            <td style="padding: 0.75rem;">#${winner.participantNumber} of ${winner.totalParticipants}</td>
+                            <td style="padding: 0.75rem; font-size: 0.875rem;">${new Date(winner.drawnAt).toLocaleString()}</td>
+                            <td style="padding: 0.75rem;">
+                                <button onclick="markWinnerPaid('${winner.raffleId}')" class="admin-button success" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                    ✅ Mark Paid
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function updateLiveActivity() {
+    const allRaffles = JSON.parse(localStorage.getItem('allRaffles') || '[]');
+    const activities = [];
+    
+    // Collect all recent activities (last 10)
+    allRaffles.forEach(raffle => {
+        const participants = JSON.parse(localStorage.getItem(`raffle_${raffle.id}_participants`) || '[]');
+        participants.forEach(p => {
+            activities.push({
+                type: 'entry',
+                raffleTitle: raffle.title,
+                address: p.address,
+                timestamp: p.timestamp,
+                avatar: p.avatar
+            });
+        });
+    });
+    
+    // Sort by timestamp (newest first) and take last 10
+    activities.sort((a, b) => b.timestamp - a.timestamp);
+    const recentActivities = activities.slice(0, 10);
+    
+    const feedContainer = document.getElementById('liveActivityFeed');
+    
+    if (recentActivities.length === 0) {
+        feedContainer.innerHTML = '<p style="text-align: center; color: #6B7280;">No recent activity</p>';
+        return;
+    }
+    
+    feedContainer.innerHTML = recentActivities.map(activity => `
+        <div style="display: flex; align-items: center; gap: 1rem; padding: 0.75rem; background: white; border-radius: 6px; margin-bottom: 0.5rem;">
+            <span style="font-size: 1.5rem;">${activity.avatar}</span>
+            <div style="flex: 1;">
+                <div style="font-weight: 600; color: #111827; font-size: 0.875rem;">
+                    ${activity.address.slice(0, 6)}...${activity.address.slice(-4)} entered
+                </div>
+                <div style="font-size: 0.75rem; color: #6B7280;">
+                    ${activity.raffleTitle} • ${getTimeAgo(activity.timestamp)}
+                </div>
+            </div>
+            <span style="color: #10B981; font-weight: 600;">🎫</span>
+        </div>
+    `).join('');
+}
+
+function displayAllParticipants() {
+    const allRaffles = JSON.parse(localStorage.getItem('allRaffles') || '[]');
+    const allParticipants = [];
+    
+    // Collect all participants from all raffles
+    allRaffles.forEach(raffle => {
+        const participants = JSON.parse(localStorage.getItem(`raffle_${raffle.id}_participants`) || '[]');
+        participants.forEach((p, index) => {
+            allParticipants.push({
+                ...p,
+                raffleTitle: raffle.title,
+                raffleId: raffle.id,
+                entryNumber: index + 1,
+                totalEntries: participants.length
+            });
+        });
+    });
+    
+    // Sort by timestamp (newest first)
+    allParticipants.sort((a, b) => b.timestamp - a.timestamp);
+    
+    const container = document.getElementById('participantsTable');
+    
+    if (allParticipants.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #6B7280; padding: 2rem;">No participants yet</p>';
+        return;
+    }
+    
+    container.innerHTML = `
+        <div style="margin-bottom: 1rem; padding: 1rem; background: #EFF6FF; border-radius: 8px;">
+            <strong>Total Participants:</strong> ${allParticipants.length}
+        </div>
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #F3F4F6; text-align: left;">
+                        <th style="padding: 0.75rem; font-weight: 600;">Avatar</th>
+                        <th style="padding: 0.75rem; font-weight: 600;">Wallet Address</th>
+                        <th style="padding: 0.75rem; font-weight: 600;">Entry #</th>
+                        <th style="padding: 0.75rem; font-weight: 600;">Raffle</th>
+                        <th style="padding: 0.75rem; font-weight: 600;">Timestamp</th>
+                        <th style="padding: 0.75rem; font-weight: 600;">TX Hash</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${allParticipants.map(p => `
+                        <tr style="border-bottom: 1px solid #E5E7EB;">
+                            <td style="padding: 0.75rem; font-size: 1.5rem;">${p.avatar}</td>
+                            <td style="padding: 0.75rem; font-family: monospace; font-size: 0.875rem;">
+                                ${p.address}
+                                <button onclick="copyToClipboard('${p.address}')" style="margin-left: 0.5rem; padding: 0.25rem 0.5rem; background: #E5E7EB; border: none; border-radius: 4px; cursor: pointer;">📋</button>
+                            </td>
+                            <td style="padding: 0.75rem; font-weight: 600; color: #8B5CF6;">#${p.entryNumber} of ${p.totalEntries}</td>
+                            <td style="padding: 0.75rem; font-size: 0.875rem;">${p.raffleTitle}</td>
+                            <td style="padding: 0.75rem; font-size: 0.875rem;">${new Date(p.timestamp).toLocaleString()}</td>
+                            <td style="padding: 0.75rem; font-family: monospace; font-size: 0.75rem;">
+                                ${p.txHash ? p.txHash.slice(0, 10) + '...' : 'N/A'}
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    // Add search functionality
+    document.getElementById('participantSearch').addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase();
+        const rows = container.querySelectorAll('tbody tr');
+        
+        rows.forEach(row => {
+            const address = row.querySelector('td:nth-child(2)').textContent.toLowerCase();
+            if (address.includes(searchTerm)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    });
+}
+
+function getTimeAgo(timestamp) {
+    const seconds = Math.floor((Date.now() - timestamp) / 1000);
+    
+    if (seconds < 60) return 'just now';
+    if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
+    if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
+    return Math.floor(seconds / 86400) + 'd ago';
+}
+
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        alert('✅ Address copied to clipboard!');
+    }).catch(err => {
+        console.error('Failed to copy:', err);
+    });
+}
+
+function markWinnerPaid(raffleId) {
+    if (!confirm('Confirm that you have sent the prize to the winner?')) {
+        return;
+    }
+    
+    const winners = JSON.parse(localStorage.getItem('pendingWinnerPayments') || '[]');
+    const updatedWinners = winners.map(w => {
+        if (w.raffleId === raffleId) {
+            return { ...w, paymentStatus: 'paid', paidAt: Date.now() };
+        }
+        return w;
+    });
+    
+    localStorage.setItem('pendingWinnerPayments', JSON.stringify(updatedWinners));
+    updateDashboard();
+    alert('✅ Winner payment marked as complete!');
+}
+
 // Make functions globally accessible
 window.viewRaffleDetails = viewRaffleDetails;
 window.deleteRaffle = deleteRaffle;
+window.copyToClipboard = copyToClipboard;
+window.markWinnerPaid = markWinnerPaid;

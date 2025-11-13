@@ -310,13 +310,61 @@
 
         <!-- Tabs -->
         <div class="admin-tabs">
-            <button class="admin-tab active" data-tab="create">Create Raffle</button>
+            <button class="admin-tab active" data-tab="dashboard">Dashboard</button>
+            <button class="admin-tab" data-tab="participants">Participants</button>
+            <button class="admin-tab" data-tab="create">Create Raffle</button>
             <button class="admin-tab" data-tab="manage">Manage Raffles</button>
             <button class="admin-tab" data-tab="settings">Settings</button>
         </div>
 
+        <!-- Dashboard Tab -->
+        <div class="tab-content active" id="dashboard-tab">
+            <div class="admin-card">
+                <h3 class="admin-card-header">📊 Live Dashboard</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 1.5rem; border-radius: 12px; color: white;">
+                        <div style="font-size: 0.875rem; opacity: 0.9;">Active Raffles</div>
+                        <div style="font-size: 2rem; font-weight: 700;" id="dashActiveRaffles">0</div>
+                    </div>
+                    <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 1.5rem; border-radius: 12px; color: white;">
+                        <div style="font-size: 0.875rem; opacity: 0.9;">Total Participants</div>
+                        <div style="font-size: 2rem; font-weight: 700;" id="dashTotalParticipants">0</div>
+                    </div>
+                    <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 1.5rem; border-radius: 12px; color: white;">
+                        <div style="font-size: 0.875rem; opacity: 0.9;">Total Revenue</div>
+                        <div style="font-size: 2rem; font-weight: 700;" id="dashTotalRevenue">0 ETH</div>
+                    </div>
+                    <div style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); padding: 1.5rem; border-radius: 12px; color: white;">
+                        <div style="font-size: 0.875rem; opacity: 0.9;">Pending Winners</div>
+                        <div style="font-size: 2rem; font-weight: 700;" id="dashPendingWinners">0</div>
+                    </div>
+                </div>
+                
+                <h4 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 1rem;">🔴 Live Activity Feed</h4>
+                <div id="liveActivityFeed" style="background: #F9FAFB; border-radius: 8px; padding: 1rem; max-height: 300px; overflow-y: auto;">
+                    <p style="text-align: center; color: #6B7280;">No recent activity</p>
+                </div>
+            </div>
+
+            <div class="admin-card">
+                <h3 class="admin-card-header">🏆 Pending Winner Payments</h3>
+                <div id="pendingWinnersTable"></div>
+            </div>
+        </div>
+
+        <!-- Participants Tab -->
+        <div class="tab-content" id="participants-tab">
+            <div class="admin-card">
+                <h3 class="admin-card-header">👥 All Participants</h3>
+                <div style="margin-bottom: 1rem;">
+                    <input type="text" id="participantSearch" class="form-input" placeholder="🔍 Search by wallet address..." style="max-width: 400px;">
+                </div>
+                <div id="participantsTable"></div>
+            </div>
+        </div>
+
         <!-- Create Raffle Tab -->
-        <div class="tab-content active" id="create-tab">
+        <div class="tab-content" id="create-tab">
             <div class="admin-card">
                 <h3 class="admin-card-header">🎫 Create New Raffle</h3>
                 
