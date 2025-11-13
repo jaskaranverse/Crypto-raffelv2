@@ -1,33 +1,66 @@
 // API Service for Crypto Raffle
-// This replaces localStorage with backend API calls
+// Hybrid mode: Uses backend API when available, falls back to localStorage
 
-const API_BASE_URL = window.location.hostname === 'localhost' 
+const API_BASE_URL = window.location.hostname === 'localhost'
     ? 'http://localhost:3001/api'
     : 'https://your-backend-url.com/api'; // Update this with your deployed backend URL
 
 class RaffleAPI {
+    constructor() {
+        this.useBackend = false;
+        this.checkBackendAvailability();
+    }
+    
+    async checkBackendAvailability() {
+        try {
+            const response = await fetch(`${API_BASE_URL}/health`, {
+                method: 'GET',
+                signal: AbortSignal.timeout(2000) // 2 second timeout
+            });
+            if (response.ok) {
+                this.useBackend = true;
+                console.log('✅ Backend connected - using API');
+            } else {
+                this.useBackend = false;
+                console.log('⚠️ Backend not available - using localStorage');
+            }
+        } catch (error) {
+            this.useBackend = false;
+            console.log('⚠️ Backend not available - using localStorage fallback');
+        }
+    }
     // ==================== RAFFLE ENDPOINTS ====================
     
     async getAllRaffles() {
-        try {
-            const response = await fetch(`${API_BASE_URL}/raffles`);
-            if (!response.ok) throw new Error('Failed to fetch raffles');
-            return await response.json();
-        } catch (error) {
-            console.error('Error fetching raffles:', error);
-            return [];
+        if (this.useBackend) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/raffles`);
+                if (!response.ok) throw new Error('Failed to fetch raffles');
+                return await response.json();
+            } catch (error) {
+                console.error('Error fetching raffles:', error);
+                this.useBackend = false; // Fallback to localStorage
+            }
         }
+        // localStorage fallback
+        return JSON.parse(localStorage.getItem('allRaffles') || '[]');
     }
     
     async getActiveRaffles() {
-        try {
-            const response = await fetch(`${API_BASE_URL}/raffles/active`);
-            if (!response.ok) throw new Error('Failed to fetch active raffles');
-            return await response.json();
-        } catch (error) {
-            console.error('Error fetching active raffles:', error);
-            return [];
+        if (this.useBackend) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/raffles/active`);
+                if (!response.ok) throw new Error('Failed to fetch active raffles');
+                return await response.json();
+            } catch (error) {
+                console.error('Error fetching active raffles:', error);
+                this.useBackend = false;
+            }
         }
+        // localStorage fallback
+        const allRaffles = JSON.parse(localStorage.getItem('allRaffles') || '[]');
+        const now = Date.now();
+        return allRaffles.filter(r => r.endTime > now && r.status === 'active');
     }
     
     async getRaffle(raffleId) {
@@ -42,20 +75,27 @@ class RaffleAPI {
     }
     
     async createRaffle(raffleData) {
-        try {
-            const response = await fetch(`${API_BASE_URL}/raffles`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(raffleData)
-            });
-            if (!response.ok) throw new Error('Failed to create raffle');
-            return await response.json();
-        } catch (error) {
-            console.error('Error creating raffle:', error);
-            throw error;
+        if (this.useBackend) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/raffles`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(raffleData)
+                });
+                if (!response.ok) throw new Error('Failed to create raffle');
+                return await response.json();
+            } catch (error) {
+                console.error('Error creating raffle:', error);
+                this.useBackend = false;
+            }
         }
+        // localStorage fallback
+        const raffles = JSON.parse(localStorage.getItem('allRaffles') || '[]');
+        raffles.push(raffleData);
+        localStorage.setItem('allRaffles', JSON.stringify(raffles));
+        return raffleData;
     }
     
     async updateRaffle(raffleId, raffleData) {
@@ -91,31 +131,42 @@ class RaffleAPI {
     // ==================== PARTICIPANT ENDPOINTS ====================
     
     async getParticipants(raffleId) {
-        try {
-            const response = await fetch(`${API_BASE_URL}/raffles/${raffleId}/participants`);
-            if (!response.ok) throw new Error('Failed to fetch participants');
-            return await response.json();
-        } catch (error) {
-            console.error('Error fetching participants:', error);
-            return [];
+        if (this.useBackend) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/raffles/${raffleId}/participants`);
+                if (!response.ok) throw new Error('Failed to fetch participants');
+                return await response.json();
+            } catch (error) {
+                console.error('Error fetching participants:', error);
+                this.useBackend = false;
+            }
         }
+        // localStorage fallback
+        return JSON.parse(localStorage.getItem(`raffle_${raffleId}_participants`) || '[]');
     }
     
     async addParticipant(raffleId, participantData) {
-        try {
-            const response = await fetch(`${API_BASE_URL}/raffles/${raffleId}/participants`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(participantData)
-            });
-            if (!response.ok) throw new Error('Failed to add participant');
-            return await response.json();
-        } catch (error) {
-            console.error('Error adding participant:', error);
-            throw error;
+        if (this.useBackend) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/raffles/${raffleId}/participants`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(participantData)
+                });
+                if (!response.ok) throw new Error('Failed to add participant');
+                return await response.json();
+            } catch (error) {
+                console.error('Error adding participant:', error);
+                this.useBackend = false;
+            }
         }
+        // localStorage fallback
+        const participants = JSON.parse(localStorage.getItem(`raffle_${raffleId}_participants`) || '[]');
+        participants.push(participantData);
+        localStorage.setItem(`raffle_${raffleId}_participants`, JSON.stringify(participants));
+        return participantData;
     }
     
     async getAllParticipants() {
@@ -216,19 +267,39 @@ class RaffleAPI {
     // ==================== STATS ENDPOINTS ====================
     
     async getStats() {
-        try {
-            const response = await fetch(`${API_BASE_URL}/stats`);
-            if (!response.ok) throw new Error('Failed to fetch stats');
-            return await response.json();
-        } catch (error) {
-            console.error('Error fetching stats:', error);
-            return {
-                activeRaffles: 0,
-                totalParticipants: 0,
-                totalRevenue: 0,
-                pendingWinners: 0
-            };
+        if (this.useBackend) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/stats`);
+                if (!response.ok) throw new Error('Failed to fetch stats');
+                return await response.json();
+            } catch (error) {
+                console.error('Error fetching stats:', error);
+                this.useBackend = false;
+            }
         }
+        // localStorage fallback
+        const allRaffles = JSON.parse(localStorage.getItem('allRaffles') || '[]');
+        const now = Date.now();
+        const activeRaffles = allRaffles.filter(r => r.endTime > now && r.status === 'active').length;
+        
+        let totalParticipants = 0;
+        let totalRevenue = 0;
+        allRaffles.forEach(raffle => {
+            const participants = JSON.parse(localStorage.getItem(`raffle_${raffle.id}_participants`) || '[]');
+            const transactions = JSON.parse(localStorage.getItem(`raffle_${raffle.id}_transactions`) || '[]');
+            totalParticipants += participants.length;
+            totalRevenue += transactions.reduce((sum, tx) => sum + tx.amount, 0);
+        });
+        
+        const pendingWinners = JSON.parse(localStorage.getItem('pendingWinnerPayments') || '[]')
+            .filter(w => w.paymentStatus === 'pending').length;
+        
+        return {
+            activeRaffles,
+            totalParticipants,
+            totalRevenue,
+            pendingWinners
+        };
     }
 }
 
