@@ -54,10 +54,22 @@ async function checkMetaMaskConnection() {
 }
 
 async function connectWallet() {
+    // Detect if user is on mobile
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
     if (typeof window.ethereum === 'undefined') {
-        showGlobalStatus('❌ MetaMask is not installed! Please install MetaMask extension.', 'error');
-        window.open('https://metamask.io/download/', '_blank');
-        return;
+        if (isMobile) {
+            // On mobile, open MetaMask app with deep link
+            showGlobalStatus('📱 Opening MetaMask app...', 'success');
+            const currentUrl = window.location.href;
+            window.location.href = `https://metamask.app.link/dapp/${currentUrl.replace(/^https?:\/\//, '')}`;
+            return;
+        } else {
+            // On desktop, prompt to install
+            showGlobalStatus('❌ MetaMask is not installed! Please install MetaMask extension.', 'error');
+            window.open('https://metamask.io/download/', '_blank');
+            return;
+        }
     }
     
     const button = document.getElementById('connectWallet');
